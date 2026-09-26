@@ -87,8 +87,16 @@ export async function getBestPricesForProduct(productIdOrProduct, opts = {}) {
 /** Search vendors by name/city text (for a directory-style search). */
 export async function searchVendors(query, { limit = 20 } = {}) {
   const q = (query || '').trim();
-  if (!q) return [];
   const VENDOR_FIELDS = 'vendorCode name city state gstin source isVerified';
+  // Empty query = directory listing (first `limit` vendors), not an empty set.
+  if (!q) {
+    const rows = await Vendor.find()
+      .select(VENDOR_FIELDS)
+      .sort({ vendorCode: 1 })
+      .limit(limit)
+      .lean();
+    return rows.map(withSampleLabel);
+  }
   const text = await Vendor.find({ $text: { $search: q } })
     .select(VENDOR_FIELDS)
     .limit(limit)

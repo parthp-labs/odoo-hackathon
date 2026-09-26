@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import getJwtSecret from './jwtSecret.js';
 
 const generateToken = (user) => {
   return jwt.sign(
@@ -7,7 +8,7 @@ const generateToken = (user) => {
       role: user.role,
       email: user.email,
     },
-    process.env.JWT_SECRET || 'dev_secret_jwt_key_stocksense_12345',
+    getJwtSecret(),
     {
       expiresIn: process.env.JWT_EXPIRES_IN || '30d',
     }

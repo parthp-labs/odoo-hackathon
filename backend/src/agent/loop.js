@@ -209,13 +209,18 @@ export async function runAgentTurn({ role, userId, conversationId, userMessage, 
   assertPort(port);
 
   // Load the requested conversation, else start a new one for this user.
-  let conv = conversationId ? await loadConversation(conversationId) : null;
-  if (!conv) {
-    conv = await newConversation(toUserId(userId));
-    conversationId = conv._id;
-  } else {
-    conversationId = conv._id;
-  }
+    let conv = conversationId ? await loadConversation(conversationId) : null;
+    if (conv && String(conv.user) !== String(toUserId(userId))) {
+      // The conversation belongs to someone else — treat it as not found so a
+      // caller can never read or continue another user's chat history (IDOR).
+      conv = null;
+    }
+    if (!conv) {
+      conv = await newConversation(toUserId(userId));
+      conversationId = conv._id;
+    } else {
+      conversationId = conv._id;
+    }
 
   const mode = (await getMode(conversationId)) || 'SAFE';
 

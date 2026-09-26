@@ -14,7 +14,7 @@ const generateOtpCode = () => {
 // @route   POST /api/auth/register
 // @access  Public
 export const register = asyncHandler(async (req, res, next) => {
-  const { name, email, password, role } = req.body;
+  const { name, email, password } = req.body;
 
   if (!name || !email || !password) {
     return next(
@@ -39,15 +39,16 @@ export const register = asyncHandler(async (req, res, next) => {
     // If user exists but not verified, update name and password and re-send OTP
     user.name = name;
     user.password_hash = password;
-    if (role) user.role = role;
     await user.save();
   } else {
-    // Create new unverified user
+    // Create new unverified user. Role is NEVER accepted from the client:
+    // self-registration always yields the least-privileged warehouse_staff.
+    // Admins / inventory managers are provisioned by an existing admin only.
     user = await User.create({
       name,
       email: normalizedEmail,
       password_hash: password,
-      role: role || "warehouse_staff",
+      role: "warehouse_staff",
       is_email_verified: false,
       status: "pending_verification",
     });

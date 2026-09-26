@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import asyncHandler from './async.middleware.js';
 import ErrorResponse from '../utils/errorResponse.js';
+import getJwtSecret from '../utils/jwtSecret.js';
 import User from '../models/user.model.js';
 
 // Protect routes - verify JWT token
@@ -19,10 +20,10 @@ export const protect = asyncHandler(async (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET || 'dev_secret_jwt_key_stocksense_12345'
-    );
+      const decoded = jwt.verify(
+        token,
+        getJwtSecret()
+      );
 
     const user = await User.findById(decoded.id);
 
