@@ -10,6 +10,18 @@ backend/node_modules/
 .env.*.local
 *.env
 
+# Editor/backup copies of secret files (e.g. .env~, .env.bak) — never commit
+.env~*
+.env*~
+.env.*.bak
+.env.*.orig
+.env.*.swp
+*.env~
+
+# Template files are safe to commit and MUST stay trackable
+!.env.example
+!.env.*.example
+
 # Logs & debugging
 npm-debug.log*
 yarn-debug.log*
