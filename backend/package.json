@@ -19,6 +19,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@ai-sdk/openai-compatible": "^0.2.16",
+    "ai": "^4.3.19",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
@@ -27,7 +29,8 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^8.9.5",
     "morgan": "^1.10.0",
-    "nodemailer": "^10.0.10"
+    "nodemailer": "^10.0.10",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "nodemon": "^3.1.9"
