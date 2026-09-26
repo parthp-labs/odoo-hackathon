@@ -37,6 +37,7 @@ export default function RackUnit({ rack, index, highlightedKeys, isSearching, on
             key={shelfIndex}
             shelf={shelf}
             boxOffset={shelfOffsets[shelfIndex]}
+            maxQuantity={rack.maxQuantity}
             highlightedKeys={highlightedKeys}
             isSearching={isSearching}
             onBoxClick={onBoxClick}

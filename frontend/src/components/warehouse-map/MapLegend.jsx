@@ -1,10 +1,9 @@
-import { RACK_STATUS } from '../../hooks/useWarehouseMap'
+import { STOCK_STATUS } from '../../utils/constants'
 
 const LEGEND_ITEMS = [
-  { status: RACK_STATUS.IN_STOCK, label: 'In Stock', dot: 'bg-green-500' },
-  { status: RACK_STATUS.LOW_STOCK, label: 'Low Stock', dot: 'bg-amber-500' },
-  { status: RACK_STATUS.OUT_OF_STOCK, label: 'Out of Stock', dot: 'bg-red-500' },
-  { status: RACK_STATUS.NO_RULE, label: 'No Rule', dot: 'bg-gray-400' },
+  { status: STOCK_STATUS.IN_STOCK, label: 'In Stock', dot: 'bg-green-500' },
+  { status: STOCK_STATUS.LOW_STOCK, label: 'Low Stock', dot: 'bg-amber-500' },
+  { status: STOCK_STATUS.OUT_OF_STOCK, label: 'Out of Stock', dot: 'bg-red-500' },
 ]
 
 export default function MapLegend() {

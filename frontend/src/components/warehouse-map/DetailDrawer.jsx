@@ -35,12 +35,10 @@ function ProductDetail({ item }) {
         <span className="text-right font-medium text-gray-800">{formatNumber(item.reserved_quantity)}</span>
         <span className="text-gray-500">Available</span>
         <span className="text-right font-medium text-gray-800">{formatNumber(item.available)}</span>
-        {item.min_quantity !== null && (
+        {item.min_quantity > 0 && (
           <>
             <span className="text-gray-500">Reorder minimum</span>
             <span className="text-right font-medium text-gray-800">{formatNumber(item.min_quantity)}</span>
-            <span className="text-gray-500">Reorder maximum</span>
-            <span className="text-right font-medium text-gray-800">{formatNumber(item.max_quantity)}</span>
           </>
         )}
       </div>

@@ -1,13 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, animate, motion, useMotionValue, useReducedMotion } from 'framer-motion'
-import { RACK_STATUS } from '../../hooks/useWarehouseMap'
+import { STOCK_STATUS } from '../../utils/constants'
 import BoxTooltip from './BoxTooltip'
 
 const STATUS_STYLES = {
-  [RACK_STATUS.IN_STOCK]: 'border-green-400 bg-green-50 text-green-800',
-  [RACK_STATUS.LOW_STOCK]: 'border-amber-400 bg-amber-50 text-amber-800',
-  [RACK_STATUS.OUT_OF_STOCK]: 'border-red-300 border-dashed bg-red-50/40 text-red-600',
-  [RACK_STATUS.NO_RULE]: 'border-gray-300 bg-gray-50 text-gray-600',
+  [STOCK_STATUS.IN_STOCK]: 'border-green-400 bg-green-50 text-green-800',
+  [STOCK_STATUS.LOW_STOCK]: 'border-amber-400 bg-amber-50 text-amber-800',
+  [STOCK_STATUS.OUT_OF_STOCK]: 'border-red-300 border-dashed bg-red-50/40 text-red-600',
 }
 
 const FLASH_STYLES = {
@@ -19,7 +18,7 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value))
 }
 
-export default function ProductBox({ item, index, highlighted, dimmed, onClick }) {
+export default function ProductBox({ item, index, maxQuantity, highlighted, dimmed, onClick }) {
   const reducedMotion = useReducedMotion()
   const [hovered, setHovered] = useState(false)
   const [flash, setFlash] = useState(null)
@@ -50,11 +49,11 @@ export default function ProductBox({ item, index, highlighted, dimmed, onClick }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item.quantity, reducedMotion])
 
-  const ratio = item.max_quantity ? clamp(item.quantity / item.max_quantity, 0.15, 1) : 0.55
+  const ratio = maxQuantity ? clamp(item.quantity / maxQuantity, 0.2, 1) : 0.55
   const boxHeight = 44 + ratio * 30
 
-  const isLowStock = item.status === RACK_STATUS.LOW_STOCK
-  const isOutOfStock = item.status === RACK_STATUS.OUT_OF_STOCK
+  const isLowStock = item.status === STOCK_STATUS.LOW_STOCK
+  const isOutOfStock = item.status === STOCK_STATUS.OUT_OF_STOCK
 
   return (
     <motion.div

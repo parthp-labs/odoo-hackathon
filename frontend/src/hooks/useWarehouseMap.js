@@ -1,42 +1,90 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
-import { getWarehouses } from '../api/warehouses.api'
-import { getLocations } from '../api/locations.api'
-import { getProducts } from '../api/products.api'
-import { getStockQuants } from '../api/warehouseMap.api'
-import { LOCATION_TYPES } from '../utils/constants'
-
-export const RACK_STATUS = {
-  IN_STOCK: 'in_stock',
-  LOW_STOCK: 'low_stock',
-  OUT_OF_STOCK: 'out_of_stock',
-  NO_RULE: 'no_rule',
-}
+import { getWarehouses, getRackLayout } from '../api/warehouseMap.api'
+import { STOCK_STATUS } from '../utils/constants'
 
 const REFRESH_INTERVAL_MS = 30000
 const MAX_PER_SHELF = 4
-const MIN_SHELVES = 3
-const MAX_SHELVES = 4
+const MAX_ROWS_PER_LOCATION = 3
+const MIN_ROWS_PER_RACK = 3
 
-function computeStatus(quantity, rule) {
-  if (!rule) return RACK_STATUS.NO_RULE
-  if (quantity <= 0) return RACK_STATUS.OUT_OF_STOCK
-  if (rule.min_quantity > 0 && quantity <= rule.min_quantity) return RACK_STATUS.LOW_STOCK
-  return RACK_STATUS.IN_STOCK
+function computeStatus(onHand, minQuantity) {
+  if (onHand <= 0) return STOCK_STATUS.OUT_OF_STOCK
+  if (minQuantity > 0 && onHand <= minQuantity) return STOCK_STATUS.LOW_STOCK
+  return STOCK_STATUS.IN_STOCK
 }
 
-function buildShelves(items) {
-  const capacity = MAX_SHELVES * MAX_PER_SHELF
-  const overflow = items.length > capacity ? items.length - (capacity - 1) : 0
-  const visibleItems = overflow > 0 ? items.slice(0, capacity - 1) : items
+// The rack-layout endpoint always returns flat product/location ids, but this
+// guards against a populated-object shape without needing extra requests.
+function idOf(ref) {
+  return ref && typeof ref === 'object' ? ref._id || ref.id : ref
+}
 
-  const shelves = []
-  for (let i = 0; i < visibleItems.length; i += MAX_PER_SHELF) {
-    shelves.push({ items: visibleItems.slice(i, i + MAX_PER_SHELF), overflow: 0 })
+function toBoxItem(product, locationId) {
+  const onHand = product.onHand ?? 0
+  const minQuantity = product.minThreshold || 0
+
+  return {
+    key: `${locationId}-${idOf(product.productId)}`,
+    product: {
+      _id: idOf(product.productId),
+      name: product.name,
+      sku: product.sku,
+      category: product.category,
+      uom: product.uom,
+      description: product.description,
+    },
+    location_id: locationId,
+    quantity: onHand,
+    reserved_quantity: product.reserved ?? 0,
+    available: product.freeToUse ?? onHand,
+    min_quantity: minQuantity,
+    status: computeStatus(onHand, minQuantity),
   }
-  while (shelves.length < MIN_SHELVES) shelves.push({ items: [], overflow: 0 })
-  shelves[shelves.length - 1].overflow = overflow
-  return shelves
+}
+
+// Chunks one location's items into rows of MAX_PER_SHELF boxes, capping total
+// rows per location so one overstuffed shelf can't blow up the layout.
+function buildRows(items) {
+  const capacity = MAX_ROWS_PER_LOCATION * MAX_PER_SHELF
+  const overflow = items.length > capacity ? items.length - (capacity - 1) : 0
+  const visible = overflow > 0 ? items.slice(0, capacity - 1) : items
+
+  const rows = []
+  for (let i = 0; i < visible.length; i += MAX_PER_SHELF) {
+    rows.push({ items: visible.slice(i, i + MAX_PER_SHELF), overflow: 0 })
+  }
+  if (rows.length === 0) rows.push({ items: [], overflow: 0 })
+  rows[rows.length - 1].overflow = overflow
+  return rows
+}
+
+function mapRack(zoneName, rack) {
+  const allItems = []
+  const rows = []
+
+  rack.shelves.forEach((shelf) => {
+    const items = shelf.products.map((p) => toBoxItem(p, idOf(shelf.locationId)))
+    allItems.push(...items)
+    rows.push(...buildRows(items))
+  })
+
+  while (rows.length < MIN_ROWS_PER_RACK) rows.push({ items: [], overflow: 0 })
+
+  const maxQuantity = allItems.reduce((max, item) => Math.max(max, item.quantity), 0)
+
+  return {
+    _id: `${zoneName}::${rack.rackId}`,
+    name: rack.rackName,
+    code: zoneName,
+    items: allItems,
+    shelves: rows,
+    maxQuantity: Math.max(1, maxQuantity),
+  }
+}
+
+function mapZonesToRacks(zones) {
+  return zones.flatMap((zone) => zone.racks.map((rack) => mapRack(zone.zoneName, rack)))
 }
 
 export function useWarehouseMap() {
@@ -75,66 +123,17 @@ export function useWarehouseMap() {
     setErrorMessage('')
 
     try {
-      const [locationsRes, quantsRes, productsRes] = await Promise.all([
-        getLocations({ warehouse: currentWarehouseId }),
-        getStockQuants({ warehouse: currentWarehouseId }),
-        getProducts({ limit: 1000 }),
-      ])
-
-      const productsById = new Map(productsRes.data.items.map((p) => [p._id, p]))
-      const quantsByLocation = new Map()
-      quantsRes.data.forEach((q) => {
-        const list = quantsByLocation.get(q.location_id) || []
-        list.push(q)
-        quantsByLocation.set(q.location_id, list)
-      })
-
-      const internalLocations = locationsRes.data.filter(
-        (l) => l.location_type === LOCATION_TYPES.INTERNAL && l.is_active,
-      )
-
-      const nextRacks = internalLocations.map((location) => {
-        const quants = quantsByLocation.get(location._id) || []
-        const items = quants
-          .map((q) => {
-            const product = productsById.get(q.product_id)
-            if (!product) return null
-            const rule = (product.reordering_rules || []).find((r) => r.warehouse === currentWarehouseId)
-            return {
-              key: `${location._id}-${q.product_id}`,
-              product,
-              location_id: location._id,
-              quantity: q.quantity,
-              reserved_quantity: q.reserved_quantity,
-              available: q.quantity - q.reserved_quantity,
-              min_quantity: rule?.min_quantity ?? null,
-              max_quantity: rule?.max_quantity ?? null,
-              status: computeStatus(q.quantity, rule),
-            }
-          })
-          .filter(Boolean)
-          .sort((a, b) => a.product.name.localeCompare(b.product.name))
-
-        return {
-          _id: location._id,
-          name: location.name,
-          code: location.code,
-          items,
-          shelves: buildShelves(items),
-        }
-      })
-
-      nextRacks.sort((a, b) => a.name.localeCompare(b.name))
-
-      setRacks(nextRacks)
+      const { data: envelope } = await getRackLayout({ warehouse: currentWarehouseId })
+      setRacks(mapZonesToRacks(envelope.data || []))
       setLastUpdated(new Date())
       setStatus('loaded')
-    } catch {
+    } catch (err) {
+      const message = err.response?.data?.message || 'Could not load the warehouse map. Please try again.'
       if (isBackground) {
-        toast.error('Could not refresh the warehouse map')
+        toast.error(message)
       } else {
         setStatus('error')
-        setErrorMessage('Could not load the warehouse map. Please try again.')
+        setErrorMessage(message)
       }
     } finally {
       if (isBackground) setRefreshing(false)

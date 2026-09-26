@@ -1,39 +1,12 @@
-// TODO: backend
-// Real endpoint: GET /api/stock?warehouse=<id> — "real-time stock balances across
-// locations" (see /api/docs). Returns quants; product/location details are merged
-// client-side in useWarehouseMap from getProducts()/getLocations().
+// Always hits the live backend — this feature does not use mock data, regardless
+// of VITE_USE_MOCKS (matches the same real-only pattern used by operations.api.js).
 import client from './client'
-import { USE_MOCKS, mockResolve } from './mockHelper'
-import { mockProducts } from '../mocks/products.mock'
-import { mockLocations } from '../mocks/locations.mock'
 
-function buildMockStockQuants() {
-  const quants = []
-  mockProducts.forEach((product) => {
-    ;(product.stock || []).forEach((s) => {
-      quants.push({
-        product_id: product._id,
-        location_id: s.location,
-        quantity: s.quantity,
-        reserved_quantity: s.reserved_quantity,
-      })
-    })
-  })
-  return quants
-}
+// GET /api/warehouses -> { success, count, data: Warehouse[] } (unwrapped by client.js)
+export const getWarehouses = () => client.get('/warehouses')
 
-export const getStockQuants = (params = {}) => {
-  if (USE_MOCKS) {
-    let items = buildMockStockQuants()
-    if (params.warehouse) {
-      const locationIds = new Set(
-        mockLocations.filter((l) => l.warehouse === params.warehouse).map((l) => l._id),
-      )
-      items = items.filter((q) => locationIds.has(q.location_id))
-    }
-    if (params.location) items = items.filter((q) => q.location_id === params.location)
-    if (params.product) items = items.filter((q) => q.product_id === params.product)
-    return mockResolve(items)
-  }
-  return client.get('/stock', { params })
-}
+// GET /api/stock/rack-layout?warehouse=<id>
+// -> { success, warehouse, summary, data: Zone[] } — kept as the full envelope
+// (skipUnwrap) because `warehouse` and `summary` are useful alongside `data`.
+export const getRackLayout = (params = {}) =>
+  client.get('/stock/rack-layout', { params, skipUnwrap: true })

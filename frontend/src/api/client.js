@@ -13,7 +13,17 @@ client.interceptors.request.use((config) => {
 })
 
 client.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Backend wraps list/detail responses as { success, data }. Unwrap so callers
+    // can treat response.data as the payload directly, like the rest of the app expects.
+    // Pass { skipUnwrap: true } in a request config to keep the full envelope (e.g. when
+    // sibling fields like `summary` alongside `data` are also needed).
+    const body = response.data
+    if (!response.config?.skipUnwrap && body && typeof body === 'object' && body.success === true && 'data' in body) {
+      response.data = body.data
+    }
+    return response
+  },
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('token')

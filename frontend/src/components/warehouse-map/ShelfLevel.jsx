@@ -1,6 +1,14 @@
 import ProductBox from './ProductBox'
 
-export default function ShelfLevel({ shelf, boxOffset, highlightedKeys, isSearching, onBoxClick, onOverflowClick }) {
+export default function ShelfLevel({
+  shelf,
+  boxOffset,
+  maxQuantity,
+  highlightedKeys,
+  isSearching,
+  onBoxClick,
+  onOverflowClick,
+}) {
   return (
     <div className="relative">
       <div className="flex min-h-[52px] flex-wrap items-end justify-center gap-1.5 px-2 pb-1.5">
@@ -12,6 +20,7 @@ export default function ShelfLevel({ shelf, boxOffset, highlightedKeys, isSearch
               key={item.key}
               item={item}
               index={boxOffset + i}
+              maxQuantity={maxQuantity}
               highlighted={isSearching && highlightedKeys.has(item.key)}
               dimmed={isSearching && !highlightedKeys.has(item.key)}
               onClick={onBoxClick}

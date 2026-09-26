@@ -25,12 +25,10 @@ export default function BoxTooltip({ item }) {
         <span className="text-right font-medium text-gray-800">{formatNumber(item.reserved_quantity)}</span>
         <span>Available</span>
         <span className="text-right font-medium text-gray-800">{formatNumber(item.available)}</span>
-        {item.min_quantity !== null && (
+        {item.min_quantity > 0 && (
           <>
-            <span>Min / Max</span>
-            <span className="text-right font-medium text-gray-800">
-              {formatNumber(item.min_quantity)} / {formatNumber(item.max_quantity)}
-            </span>
+            <span>Reorder min</span>
+            <span className="text-right font-medium text-gray-800">{formatNumber(item.min_quantity)}</span>
           </>
         )}
       </div>
