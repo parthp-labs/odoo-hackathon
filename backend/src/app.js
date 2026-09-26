@@ -13,6 +13,7 @@ import operationRoutes from './routes/operation.route.js';
 import stockRoutes from './routes/stock.route.js';
 import moveRoutes from './routes/move.route.js';
 import dashboardRoutes from './routes/dashboard.route.js';
+import replenishmentRoutes from './routes/replenishment.route.js';
 import errorHandler from './middlewares/error.middleware.js';
 import ErrorResponse from './utils/errorResponse.js';
 
@@ -50,6 +51,7 @@ app.use('/api/operations', operationRoutes);
 app.use('/api/stock', stockRoutes);
 app.use('/api/moves', moveRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api', replenishmentRoutes);
 
 // 404 Catch-all Handler
 app.use((req, res, next) => {
