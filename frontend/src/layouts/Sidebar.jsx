@@ -9,6 +9,7 @@ import {
   ClipboardList,
   History,
   Warehouse,
+  LayoutGrid,
   MapPin,
   Boxes,
   X,
@@ -65,6 +66,7 @@ export default function Sidebar({ open, onClose }) {
 
           <nav className="flex-1 overflow-y-auto px-3 pb-4 scrollbar-thin">
             <NavItem to="/dashboard" icon={LayoutDashboard} label="Dashboard" onNavigate={onClose} />
+            <NavItem to="/warehouse-map" icon={LayoutGrid} label="Warehouse Map" onNavigate={onClose} />
 
             <SectionLabel>Products</SectionLabel>
             <NavItem to="/products" icon={Package} label="Products" onNavigate={onClose} />
