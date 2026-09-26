@@ -8,6 +8,10 @@ import StockQuant from './stockQuant.model.js';
 import StockOperation from './stockOperation.model.js';
 import StockMove from './stockMove.model.js';
 import Conversation from './conversation.model.js';
+import Vendor from './vendor.model.js';
+import VendorPrice from './vendorPrice.model.js';
+import Forecast from './forecast.model.js';
+import ReorderSuggestion from './reorderSuggestion.model.js';
 
 export {
   User,
@@ -20,6 +24,10 @@ export {
   StockOperation,
   StockMove,
   Conversation,
+  Vendor,
+  VendorPrice,
+  Forecast,
+  ReorderSuggestion,
 };
 
 export default {
@@ -33,4 +41,8 @@ export default {
   StockOperation,
   StockMove,
   Conversation,
+  Vendor,
+  VendorPrice,
+  Forecast,
+  ReorderSuggestion,
 };
