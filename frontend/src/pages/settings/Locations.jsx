@@ -57,8 +57,9 @@ export default function Locations() {
   const locationMap = Object.fromEntries(locations.map((l) => [l._id, l.name]))
   const warehouseOptions = warehouses.map((w) => ({ value: w._id, label: w.name }))
 
-  const filteredLocations = locations.filter((l) => {
-    if (warehouseFilter && l.warehouse !== warehouseFilter) return false
+  const filteredLocations = (locations || []).filter((l) => {
+    const whId = l.warehouse?._id || l.warehouse
+    if (warehouseFilter && whId !== warehouseFilter) return false
     if (typeFilter && l.location_type !== typeFilter) return false
     return true
   })
@@ -144,9 +145,9 @@ export default function Locations() {
                       )}
                     </div>
                   </Td>
-                  <Td>{location.warehouse ? warehouseMap[location.warehouse] : '-'}</Td>
+                  <Td>{location.warehouse?.name || warehouseMap[location.warehouse?._id || location.warehouse] || '-'}</Td>
                   <Td className="capitalize">{formatEnumLabel(location.location_type)}</Td>
-                  <Td>{location.parent_location ? locationMap[location.parent_location] : '-'}</Td>
+                  <Td>{location.parent_location?.name || locationMap[location.parent_location?._id || location.parent_location] || '-'}</Td>
                   <Td>
                     <span
                       className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${

@@ -18,8 +18,8 @@ export default function LocationForm({ formId, location = null, warehouses = [],
   } = useForm({
     resolver: zodResolver(locationSchema),
     defaultValues: {
-      warehouse: location?.warehouse || '',
-      parent_location: location?.parent_location || '',
+      warehouse: location?.warehouse?._id || location?.warehouse || '',
+      parent_location: location?.parent_location?._id || location?.parent_location || '',
       name: location?.name || '',
       code: location?.code || '',
       location_type: location?.location_type || 'internal',
@@ -28,8 +28,8 @@ export default function LocationForm({ formId, location = null, warehouses = [],
 
   useEffect(() => {
     reset({
-      warehouse: location?.warehouse || '',
-      parent_location: location?.parent_location || '',
+      warehouse: location?.warehouse?._id || location?.warehouse || '',
+      parent_location: location?.parent_location?._id || location?.parent_location || '',
       name: location?.name || '',
       code: location?.code || '',
       location_type: location?.location_type || 'internal',
@@ -42,7 +42,7 @@ export default function LocationForm({ formId, location = null, warehouses = [],
   const parentOptions = useMemo(
     () =>
       locations
-        .filter((l) => l._id !== location?._id && (!selectedWarehouse || l.warehouse === selectedWarehouse))
+        .filter((l) => l._id !== location?._id && (!selectedWarehouse || (l.warehouse?._id || l.warehouse) === selectedWarehouse))
         .map((l) => ({ value: l._id, label: l.name })),
     [locations, selectedWarehouse, location],
   )

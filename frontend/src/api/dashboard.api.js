@@ -66,8 +66,9 @@ export const getStockByCategory = async (params) => {
   const quants = res.data.data || []
   const categoryMap = {}
   for (const q of quants) {
-    const cat = q.category || 'Uncategorized'
-    categoryMap[cat] = (categoryMap[cat] || 0) + (q.onHand || 0)
+    const cat = q.product?.category?.name || q.category || 'Uncategorized'
+    const qty = Number(q.quantity ?? q.onHand ?? 0)
+    categoryMap[cat] = (categoryMap[cat] || 0) + qty
   }
   const byCategory = Object.entries(categoryMap).map(([label, quantity]) => ({
     label,
@@ -83,8 +84,9 @@ export const getStockByWarehouse = async (params) => {
   const quants = res.data.data || []
   const whMap = {}
   for (const q of quants) {
-    const wh = q.warehouseName || 'Main'
-    whMap[wh] = (whMap[wh] || 0) + (q.onHand || 0)
+    const wh = q.location?.warehouse?.name || q.warehouseName || 'Main Warehouse'
+    const qty = Number(q.quantity ?? q.onHand ?? 0)
+    whMap[wh] = (whMap[wh] || 0) + qty
   }
   const byWarehouse = Object.entries(whMap).map(([label, quantity]) => ({
     label,

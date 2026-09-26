@@ -42,7 +42,19 @@ export default function Adjustments() {
       if (internalLocs.length > 0 && !selectedLocation) {
         setSelectedLocation(internalLocs[0]._id)
       }
-      setStockQuants(stockRes.data.data || [])
+      const rawQuants = stockRes.data.data || []
+      const normalized = rawQuants.map((q) => ({
+        id: q._id || q.id,
+        productId: q.product?._id?.toString() || (typeof q.product === 'string' ? q.product : '') || q.productId,
+        productName: q.product?.name || q.productName || 'Unknown Product',
+        sku: q.product?.sku || q.sku || '-',
+        uom: q.product?.uom || q.uom || 'units',
+        locationId: q.location?._id?.toString() || (typeof q.location === 'string' ? q.location : '') || q.locationId,
+        locationName: q.location?.name || q.locationName || 'Unknown',
+        locationCode: q.location?.code || q.locationCode || '',
+        onHand: Number(q.quantity ?? q.onHand ?? 0),
+      }))
+      setStockQuants(normalized)
       setStatus('loaded')
     } catch {
       setStatus('error')
@@ -117,7 +129,19 @@ export default function Adjustments() {
 
       // Reload stock data
       const refreshStock = await client.get('/stock')
-      setStockQuants(refreshStock.data.data || [])
+      const refreshRaw = refreshStock.data.data || []
+      const refreshNormalized = refreshRaw.map((q) => ({
+        id: q._id || q.id,
+        productId: q.product?._id?.toString() || (typeof q.product === 'string' ? q.product : '') || q.productId,
+        productName: q.product?.name || q.productName || 'Unknown Product',
+        sku: q.product?.sku || q.sku || '-',
+        uom: q.product?.uom || q.uom || 'units',
+        locationId: q.location?._id?.toString() || (typeof q.location === 'string' ? q.location : '') || q.locationId,
+        locationName: q.location?.name || q.locationName || 'Unknown',
+        locationCode: q.location?.code || q.locationCode || '',
+        onHand: Number(q.quantity ?? q.onHand ?? 0),
+      }))
+      setStockQuants(refreshNormalized)
       setCountedQuantities((prev) => ({ ...prev, [item.id]: '' }))
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to adjust inventory')
