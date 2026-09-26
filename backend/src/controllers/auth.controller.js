@@ -459,6 +459,7 @@ export const getMe = asyncHandler(async (req, res, next) => {
     success: true,
     user: {
       id: user._id,
+      _id: user._id,
       name: user.name,
       email: user.email,
       role: user.role,
@@ -466,5 +467,87 @@ export const getMe = asyncHandler(async (req, res, next) => {
       status: user.status,
       createdAt: user.createdAt,
     },
+    data: {
+      id: user._id,
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      is_email_verified: user.is_email_verified,
+      status: user.status,
+      createdAt: user.createdAt,
+    },
+  });
+});
+
+// @desc    Update current logged in user profile
+// @route   PUT /api/auth/me or PUT /api/users/me
+// @access  Private
+export const updateProfile = asyncHandler(async (req, res, next) => {
+  const fieldsToUpdate = {};
+  if (req.body.name) fieldsToUpdate.name = req.body.name.trim();
+
+  const user = await User.findByIdAndUpdate(req.user.id, fieldsToUpdate, {
+    new: true,
+    runValidators: true,
+  });
+
+  const userData = {
+    id: user._id,
+    _id: user._id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    is_email_verified: user.is_email_verified,
+    status: user.status,
+  };
+
+  res.status(200).json({
+    success: true,
+    data: userData,
+    user: userData,
+  });
+});
+
+// @desc    Change user password
+// @route   POST /api/auth/change-password
+// @access  Private
+export const changePassword = asyncHandler(async (req, res, next) => {
+  const { current_password, new_password } = req.body;
+
+  if (!current_password || !new_password) {
+    return next(new ErrorResponse("Please provide current and new passwords", 400));
+  }
+
+  if (new_password.length < 6) {
+    return next(new ErrorResponse("Password must be at least 6 characters", 400));
+  }
+
+  const user = await User.findById(req.user.id).select("+password_hash");
+
+  const isMatch = await user.matchPassword(current_password);
+  if (!isMatch) {
+    return next(new ErrorResponse("Current password is incorrect", 400));
+  }
+
+  user.password_hash = new_password;
+  await user.save();
+
+  res.status(200).json({
+    success: true,
+    message: "Password updated successfully",
+  });
+});
+
+// @desc    Get all users
+// @route   GET /api/users
+// @access  Private
+export const getUsers = asyncHandler(async (req, res, next) => {
+  const users = await User.find().select("-password_hash").sort({ createdAt: -1 });
+
+  res.status(200).json({
+    success: true,
+    count: users.length,
+    data: users,
   });
 });

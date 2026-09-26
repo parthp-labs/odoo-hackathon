@@ -383,3 +383,35 @@ export const cancelOperation = asyncHandler(async (req, res, next) => {
     data: operation,
   });
 });
+
+// @desc    Mark operation status as ready
+// @route   POST /api/operations/:id/mark-ready
+// @access  Private
+export const markOperationReady = asyncHandler(async (req, res, next) => {
+  const operation = await StockOperation.findById(req.params.id);
+
+  if (!operation) {
+    return next(
+      new ErrorResponse(`Operation not found with id of ${req.params.id}`, 404),
+    );
+  }
+
+  if (operation.status === "done" || operation.status === "canceled") {
+    return next(
+      new ErrorResponse(
+        `Cannot mark operation ready because it is ${operation.status}`,
+        400,
+      ),
+    );
+  }
+
+  operation.status = "ready";
+  await operation.save();
+
+  res.status(200).json({
+    success: true,
+    message: `Operation ${operation.reference} marked as ready`,
+    data: operation,
+  });
+});
+
