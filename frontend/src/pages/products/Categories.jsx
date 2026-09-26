@@ -7,9 +7,11 @@ import { TableSkeleton } from '../../components/ui/Skeleton'
 import EmptyState from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
+import Pagination from '../../components/ui/Pagination'
 import CategoryModal from '../../components/products/CategoryModal'
 import toast from 'react-hot-toast'
 import { getCategories, deleteCategory } from '../../api/categories.api'
+import { usePagination } from '../../hooks/usePagination'
 
 const COLUMNS = [
   { key: 'name', label: 'Name' },
@@ -25,6 +27,7 @@ export default function Categories() {
   const [editingCategory, setEditingCategory] = useState(null)
   const [deletingCategory, setDeletingCategory] = useState(null)
   const [deleting, setDeleting] = useState(false)
+  const { page, limit, setPage } = usePagination(1, 10)
 
   async function loadCategories() {
     setStatus('loading')
@@ -42,6 +45,7 @@ export default function Categories() {
   }, [])
 
   const categoryMap = Object.fromEntries(categories.map((c) => [c._id, c.name]))
+  const paginatedCategories = categories.slice((page - 1) * limit, page * limit)
 
   function openCreate() {
     setEditingCategory(null)
@@ -91,8 +95,9 @@ export default function Categories() {
         )}
 
         {status === 'loaded' && categories.length > 0 && (
+          <>
           <Table columns={COLUMNS}>
-            {categories.map((category) => (
+            {paginatedCategories.map((category) => (
               <Tr key={category._id}>
                 <Td className="font-medium text-gray-800">{category.name}</Td>
                 <Td>{category.parent ? categoryMap[category.parent] || '-' : '-'}</Td>
@@ -116,6 +121,8 @@ export default function Categories() {
               </Tr>
             ))}
           </Table>
+          <Pagination page={page} limit={limit} total={categories.length} onPageChange={setPage} />
+          </>
         )}
       </Card>
 

@@ -9,8 +9,10 @@ import EmptyState from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
 import Modal from '../../components/ui/Modal'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
+import Pagination from '../../components/ui/Pagination'
 import WarehouseForm from '../../components/settings/WarehouseForm'
 import { getWarehouses, createWarehouse, updateWarehouse, deleteWarehouse } from '../../api/warehouses.api'
+import { usePagination } from '../../hooks/usePagination'
 
 const COLUMNS = [
   { key: 'name', label: 'Name' },
@@ -29,6 +31,7 @@ export default function Warehouses() {
   const [deletingWarehouse, setDeletingWarehouse] = useState(null)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const { page, limit, setPage } = usePagination(1, 10)
 
   async function loadWarehouses() {
     setStatus('loading')
@@ -112,8 +115,9 @@ export default function Warehouses() {
         )}
 
         {status === 'loaded' && warehouses.length > 0 && (
+          <>
           <Table columns={COLUMNS}>
-            {warehouses.map((warehouse) => (
+            {warehouses.slice((page - 1) * limit, page * limit).map((warehouse) => (
               <Tr key={warehouse._id}>
                 <Td className="font-medium text-gray-800">{warehouse.name}</Td>
                 <Td>{warehouse.code}</Td>
@@ -137,6 +141,8 @@ export default function Warehouses() {
               </Tr>
             ))}
           </Table>
+          <Pagination page={page} limit={limit} total={warehouses.length} onPageChange={setPage} />
+          </>
         )}
       </Card>
 

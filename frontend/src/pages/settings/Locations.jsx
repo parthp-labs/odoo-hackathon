@@ -9,11 +9,13 @@ import { TableSkeleton } from '../../components/ui/Skeleton'
 import EmptyState from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
 import Modal from '../../components/ui/Modal'
+import Pagination from '../../components/ui/Pagination'
 import LocationForm from '../../components/settings/LocationForm'
 import { LOCATION_TYPE_OPTIONS, VIRTUAL_LOCATION_TYPES } from '../../utils/constants'
 import { formatEnumLabel } from '../../utils/formatters'
 import { getLocations, createLocation, updateLocation } from '../../api/locations.api'
 import { getWarehouses } from '../../api/warehouses.api'
+import { usePagination } from '../../hooks/usePagination'
 
 const COLUMNS = [
   { key: 'code', label: 'Code' },
@@ -36,6 +38,7 @@ export default function Locations() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editingLocation, setEditingLocation] = useState(null)
   const [saving, setSaving] = useState(false)
+  const { page, limit, setPage } = usePagination(1, 10)
 
   async function loadData() {
     setStatus('loading')
@@ -63,6 +66,7 @@ export default function Locations() {
     if (typeFilter && l.location_type !== typeFilter) return false
     return true
   })
+  const paginatedLocations = filteredLocations.slice((page - 1) * limit, page * limit)
 
   function openCreate() {
     setEditingLocation(null)
@@ -109,14 +113,20 @@ export default function Locations() {
             options={warehouseOptions}
             placeholder="All warehouses"
             value={warehouseFilter}
-            onChange={(e) => setWarehouseFilter(e.target.value)}
+            onChange={(e) => {
+              setWarehouseFilter(e.target.value)
+              setPage(1)
+            }}
             className="sm:w-56"
           />
           <Select
             options={LOCATION_TYPE_OPTIONS}
             placeholder="All types"
             value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
+            onChange={(e) => {
+              setTypeFilter(e.target.value)
+              setPage(1)
+            }}
             className="sm:w-56"
           />
         </div>
@@ -129,8 +139,9 @@ export default function Locations() {
         )}
 
         {status === 'loaded' && filteredLocations.length > 0 && (
+          <>
           <Table columns={COLUMNS}>
-            {filteredLocations.map((location) => {
+            {paginatedLocations.map((location) => {
               const isVirtual = VIRTUAL_LOCATION_TYPES.includes(location.location_type)
               return (
                 <Tr key={location._id}>
@@ -171,6 +182,8 @@ export default function Locations() {
               )
             })}
           </Table>
+          <Pagination page={page} limit={limit} total={filteredLocations.length} onPageChange={setPage} />
+          </>
         )}
       </Card>
 
