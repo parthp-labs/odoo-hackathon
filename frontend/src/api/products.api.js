@@ -1,4 +1,3 @@
-// TODO: backend
 import client from './client'
 import { USE_MOCKS, mockResolve } from './mockHelper'
 import {
@@ -18,7 +17,7 @@ function toListItem(product) {
   }
 }
 
-export const getProducts = (params = {}) => {
+export const getProducts = async (params = {}) => {
   if (USE_MOCKS) {
     const { search = '', category = '', stock_status = '', page = 1, limit = 10 } = params
     let items = mockProducts.map(toListItem)
@@ -42,18 +41,109 @@ export const getProducts = (params = {}) => {
 
     return mockResolve({ items: paginated, total, page: Number(page), limit: Number(limit) })
   }
-  return client.get('/products', { params })
+
+  // Live Backend: fetch products and stock balances concurrently to compute on-hand and status
+  const [productsRes, stockRes] = await Promise.all([
+    client.get('/products', { params }),
+    client.get('/stock'),
+  ])
+
+  let products = productsRes.data.data || []
+  const stockQuants = stockRes.data.data || []
+
+  // Build map of on-hand & reserved per product
+  const stockMap = {}
+  for (const q of stockQuants) {
+    const pId = q.productId
+    if (!stockMap[pId]) {
+      stockMap[pId] = { onHand: 0, reserved: 0 }
+    }
+    stockMap[pId].onHand += q.onHand || 0
+    stockMap[pId].reserved += q.reserved || 0
+  }
+
+  let items = products.map((p) => {
+    const sm = stockMap[p._id] || { onHand: 0, reserved: 0 }
+    const onHand = sm.onHand
+    const reserved = sm.reserved
+    const minQty = (p.reordering_rules || []).reduce((sum, r) => sum + (r.min_quantity || 0), 0)
+
+    let stock_status = 'in_stock'
+    if (onHand <= 0) {
+      stock_status = 'out_of_stock'
+    } else if (minQty > 0 && onHand <= minQty) {
+      stock_status = 'low_stock'
+    }
+
+    return {
+      ...p,
+      category: p.category?._id || p.category,
+      category_name: p.category?.name || '',
+      on_hand_quantity: onHand,
+      reserved_quantity: reserved,
+      stock_status,
+    }
+  })
+
+  // Apply filters on client side if requested
+  if (params.stock_status) {
+    items = items.filter((p) => p.stock_status === params.stock_status)
+  }
+
+  const page = Number(params.page) || 1
+  const limit = Number(params.limit) || 10
+  const total = items.length
+  const paginated = items.slice((page - 1) * limit, page * limit)
+
+  return {
+    data: {
+      items: paginated,
+      total,
+      page,
+      limit,
+    },
+  }
 }
 
-export const getProduct = (id) => {
+export const getProduct = async (id) => {
   if (USE_MOCKS) {
     const product = mockProducts.find((p) => p._id === id)
     return mockResolve(product ? toListItem(product) : null)
   }
-  return client.get(`/products/${id}`)
+
+  const [productRes, stockRes] = await Promise.all([
+    client.get(`/products/${id}`),
+    client.get(`/stock?product=${id}`),
+  ])
+
+  const product = productRes.data.data
+  if (!product) return { data: null }
+
+  const stockQuants = stockRes.data.data || []
+  const onHand = stockQuants.reduce((sum, q) => sum + (q.onHand || 0), 0)
+  const reserved = stockQuants.reduce((sum, q) => sum + (q.reserved || 0), 0)
+  const minQty = (product.reordering_rules || []).reduce((sum, r) => sum + (r.min_quantity || 0), 0)
+
+  let stock_status = 'in_stock'
+  if (onHand <= 0) {
+    stock_status = 'out_of_stock'
+  } else if (minQty > 0 && onHand <= minQty) {
+    stock_status = 'low_stock'
+  }
+
+  return {
+    data: {
+      ...product,
+      category: product.category?._id || product.category,
+      category_name: product.category?.name || '',
+      on_hand_quantity: onHand,
+      reserved_quantity: reserved,
+      stock_status,
+    },
+  }
 }
 
-export const getProductStockByLocation = (id) => {
+export const getProductStockByLocation = async (id) => {
   if (USE_MOCKS) {
     const product = mockProducts.find((p) => p._id === id)
     const rows = (product?.stock || []).map((s) => {
@@ -68,7 +158,18 @@ export const getProductStockByLocation = (id) => {
     })
     return mockResolve(rows)
   }
-  return client.get(`/products/${id}/stock-by-location`)
+
+  const res = await client.get(`/stock?product=${id}`)
+  const quants = res.data.data || []
+  const rows = quants.map((q) => ({
+    location_id: q.locationId,
+    location_name: `${q.warehouseName ? q.warehouseName + ' - ' : ''}${q.locationName} (${q.locationCode})`,
+    on_hand: q.onHand,
+    reserved: q.reserved,
+    available: q.freeToUse,
+  }))
+
+  return { data: rows }
 }
 
 function normalizeReorderingRules(rules = []) {
@@ -81,7 +182,7 @@ function normalizeReorderingRules(rules = []) {
     }))
 }
 
-export const createProduct = (payload) => {
+export const createProduct = async (payload) => {
   if (USE_MOCKS) {
     const { initial_quantity, initial_location, reordering_rules, ...rest } = payload
     const stock = []
@@ -98,10 +199,40 @@ export const createProduct = (payload) => {
     mockProducts.push(created)
     return mockResolve(toListItem(created))
   }
-  return client.post('/products', payload)
+
+  const { initial_quantity, initial_location, reordering_rules, ...rest } = payload
+  const res = await client.post('/products', {
+    ...rest,
+    reordering_rules: normalizeReorderingRules(reordering_rules),
+  })
+
+  const createdProduct = res.data.data
+
+  // If initial quantity and location were selected, create an initial inventory adjustment or receipt
+  if (initial_location && Number(initial_quantity) > 0 && createdProduct?._id) {
+    try {
+      await client.post('/operations', {
+        operation_type: 'receipt',
+        destination_location: initial_location,
+        partner_name: 'Opening Inventory Balance',
+        notes: 'Initial stock intake upon product creation',
+        lines: [
+          {
+            product: createdProduct._id,
+            demand_quantity: Number(initial_quantity),
+            done_quantity: Number(initial_quantity),
+          },
+        ],
+      })
+    } catch (e) {
+      console.warn('Initial stock assignment failed', e);
+    }
+  }
+
+  return { data: createdProduct }
 }
 
-export const updateProduct = (id, payload) => {
+export const updateProduct = async (id, payload) => {
   if (USE_MOCKS) {
     const existing = mockProducts.find((p) => p._id === id)
     if (existing) {
@@ -110,14 +241,23 @@ export const updateProduct = (id, payload) => {
     }
     return mockResolve(existing ? toListItem(existing) : { _id: id, ...payload })
   }
-  return client.put(`/products/${id}`, payload)
+
+  const { initial_quantity, initial_location, reordering_rules, ...rest } = payload
+  const res = await client.put(`/products/${id}`, {
+    ...rest,
+    reordering_rules: normalizeReorderingRules(reordering_rules),
+  })
+
+  return { data: res.data.data }
 }
 
-export const deleteProduct = (id) => {
+export const deleteProduct = async (id) => {
   if (USE_MOCKS) {
     const index = mockProducts.findIndex((p) => p._id === id)
     if (index !== -1) mockProducts.splice(index, 1)
     return mockResolve({ message: 'Product deleted' })
   }
-  return client.delete(`/products/${id}`)
+
+  const res = await client.delete(`/products/${id}`)
+  return { data: res.data }
 }

@@ -1,41 +1,45 @@
-// TODO: backend
 import client from './client'
 import { USE_MOCKS, mockResolve } from './mockHelper'
 import { mockCategories } from '../mocks/categories.mock'
 
-export const getCategories = (params) => {
+export const getCategories = async (params) => {
   if (USE_MOCKS) return mockResolve(mockCategories)
-  return client.get('/categories', { params })
+  const res = await client.get('/categories', { params })
+  return { data: res.data.data || res.data }
 }
 
-export const getCategory = (id) => {
+export const getCategory = async (id) => {
   if (USE_MOCKS) return mockResolve(mockCategories.find((c) => c._id === id) || null)
-  return client.get(`/categories/${id}`)
+  const res = await client.get(`/categories/${id}`)
+  return { data: res.data.data || res.data }
 }
 
-export const createCategory = (payload) => {
+export const createCategory = async (payload) => {
   if (USE_MOCKS) {
     const created = { _id: `cat-${Date.now()}`, ...payload }
     mockCategories.push(created)
     return mockResolve(created)
   }
-  return client.post('/categories', payload)
+  const res = await client.post('/categories', payload)
+  return { data: res.data.data || res.data }
 }
 
-export const updateCategory = (id, payload) => {
+export const updateCategory = async (id, payload) => {
   if (USE_MOCKS) {
     const existing = mockCategories.find((c) => c._id === id)
     if (existing) Object.assign(existing, payload)
     return mockResolve(existing || { _id: id, ...payload })
   }
-  return client.put(`/categories/${id}`, payload)
+  const res = await client.put(`/categories/${id}`, payload)
+  return { data: res.data.data || res.data }
 }
 
-export const deleteCategory = (id) => {
+export const deleteCategory = async (id) => {
   if (USE_MOCKS) {
     const index = mockCategories.findIndex((c) => c._id === id)
     if (index !== -1) mockCategories.splice(index, 1)
     return mockResolve({ message: 'Category deleted' })
   }
-  return client.delete(`/categories/${id}`)
+  const res = await client.delete(`/categories/${id}`)
+  return { data: res.data }
 }
