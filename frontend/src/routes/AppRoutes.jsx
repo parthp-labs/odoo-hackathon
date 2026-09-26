@@ -13,6 +13,7 @@ import ResetPassword from '../pages/auth/ResetPassword'
 
 import Dashboard from '../pages/dashboard/Dashboard'
 import WarehouseMap from '../pages/warehouse-map/WarehouseMap'
+import Replenishment from '../pages/replenishment/Replenishment'
 
 import ProductList from '../pages/products/ProductList'
 import ProductCreate from '../pages/products/ProductCreate'
@@ -52,6 +53,7 @@ export default function AppRoutes() {
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/warehouse-map" element={<WarehouseMap />} />
+          <Route path="/replenishment" element={<Replenishment />} />
 
           <Route path="/products" element={<ProductList />} />
           <Route path="/products/new" element={<ProductCreate />} />
