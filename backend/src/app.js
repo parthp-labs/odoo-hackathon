@@ -5,6 +5,7 @@ import morgan from 'morgan';
 
 import healthRoutes from './routes/health.route.js';
 import authRoutes from './routes/auth.route.js';
+import agentRoutes from './routes/agent.route.js';
 import errorHandler from './middlewares/error.middleware.js';
 import ErrorResponse from './utils/errorResponse.js';
 
@@ -34,6 +35,7 @@ app.get('/', (req, res) => {
 // API Routes
 app.use('/api', healthRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/agent', agentRoutes);
 
 // 404 Catch-all Handler
 app.use((req, res, next) => {
