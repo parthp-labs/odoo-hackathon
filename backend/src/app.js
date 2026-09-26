@@ -15,11 +15,8 @@ import moveRoutes from "./routes/move.route.js";
 import dashboardRoutes from "./routes/dashboard.route.js";
 import errorHandler from "./middlewares/error.middleware.js";
 import ErrorResponse from "./utils/errorResponse.js";
-<<<<<<< HEAD
-=======
 import swaggerUi from "swagger-ui-express";
 import { swaggerDocument } from "./docs/swagger.js";
->>>>>>> backend
 
 const app = express();
 
