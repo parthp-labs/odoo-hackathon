@@ -16,9 +16,10 @@ import {
 } from '../src/scripts/generateHistory.js';
 import {
   VENDOR_SEED,
-  VENDOR_FIXTURES,
+  VENDOR_CATEGORIES,
+  SEED_SKU_SPECS,
   buildIllustrativeGstin,
-  generateVendorPricesForProduct,
+  generateVendorDataset,
   runVendorSeed,
 } from '../src/scripts/seedVendors.js';
 
