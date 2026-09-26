@@ -13,6 +13,8 @@ import generateToken from '../src/utils/generateToken.js';
 describe('Stage 2: Master Data Management Integration Tests', () => {
   let server;
   let baseUrl;
+  let manager;
+  let staff;
   let managerToken;
   let staffToken;
   let createdWarehouseId;
@@ -27,7 +29,7 @@ describe('Stage 2: Master Data Management Integration Tests', () => {
     baseUrl = `http://localhost:${port}/api`;
 
     // Create temporary manager and staff users
-    const manager = await User.create({
+    manager = await User.create({
       name: 'Manager Test',
       email: `mgr_${Date.now()}@example.com`,
       password_hash: 'secret123',
@@ -37,7 +39,7 @@ describe('Stage 2: Master Data Management Integration Tests', () => {
     });
     managerToken = generateToken(manager);
 
-    const staff = await User.create({
+    staff = await User.create({
       name: 'Staff Test',
       email: `staff_${Date.now()}@example.com`,
       password_hash: 'secret123',
@@ -49,7 +51,6 @@ describe('Stage 2: Master Data Management Integration Tests', () => {
   });
 
   after(async () => {
-    // Cleanup created test documents
     if (createdProductId) await Product.findByIdAndDelete(createdProductId);
     if (createdCategoryId) await ProductCategory.findByIdAndDelete(createdCategoryId);
     if (createdLocationId) await Location.findByIdAndDelete(createdLocationId);
@@ -57,7 +58,8 @@ describe('Stage 2: Master Data Management Integration Tests', () => {
       await Location.deleteMany({ warehouse: createdWarehouseId });
       await Warehouse.findByIdAndDelete(createdWarehouseId);
     }
-    await User.deleteMany({ email: { $regex: /_.*@example\.com$/ } });
+    if (manager) await User.findByIdAndDelete(manager._id);
+    if (staff) await User.findByIdAndDelete(staff._id);
 
     if (server) server.close();
     await mongoose.connection.close();

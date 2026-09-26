@@ -9,6 +9,9 @@ import warehouseRoutes from './routes/warehouse.route.js';
 import locationRoutes from './routes/location.route.js';
 import productCategoryRoutes from './routes/productCategory.route.js';
 import productRoutes from './routes/product.route.js';
+import operationRoutes from './routes/operation.route.js';
+import stockRoutes from './routes/stock.route.js';
+import moveRoutes from './routes/move.route.js';
 import errorHandler from './middlewares/error.middleware.js';
 import ErrorResponse from './utils/errorResponse.js';
 
@@ -42,6 +45,9 @@ app.use('/api/warehouses', warehouseRoutes);
 app.use('/api/locations', locationRoutes);
 app.use('/api/categories', productCategoryRoutes);
 app.use('/api/products', productRoutes);
+app.use('/api/operations', operationRoutes);
+app.use('/api/stock', stockRoutes);
+app.use('/api/moves', moveRoutes);
 
 // 404 Catch-all Handler
 app.use((req, res, next) => {

@@ -4,6 +4,9 @@ import Warehouse from './warehouse.model.js';
 import Location from './location.model.js';
 import ProductCategory from './productCategory.model.js';
 import Product from './product.model.js';
+import StockQuant from './stockQuant.model.js';
+import StockOperation from './stockOperation.model.js';
+import StockMove from './stockMove.model.js';
 
 export {
   User,
@@ -12,6 +15,9 @@ export {
   Location,
   ProductCategory,
   Product,
+  StockQuant,
+  StockOperation,
+  StockMove,
 };
 
 export default {
@@ -21,4 +27,7 @@ export default {
   Location,
   ProductCategory,
   Product,
+  StockQuant,
+  StockOperation,
+  StockMove,
 };
