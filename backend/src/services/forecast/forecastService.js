@@ -86,18 +86,23 @@ export async function refitAll({ horizonWeeks = DEFAULT_HORIZON_WEEKS } = {}) {
 }
 
 /**
- * Read the latest cached forecast for a SKU, refitting that SKU if none exists.
+ * Read (and refresh) the forecast for a SKU. Always recomputes the weekly
+ * breakdown so the response carries chart-ready series alongside the
+ * persisted snapshot: `series` (trailing historical weekly demand, oldest
+ * first) and `weekly` (per-future-week forecast, length = horizonWeeks) —
+ * these two arrays are what a "Forecasted demand" graph plots.
  * @returns {Promise<object|null>}
  */
 export async function getForecast(sku, { horizonWeeks = DEFAULT_HORIZON_WEEKS, refitIfMissing = true } = {}) {
-  const cached = await Forecast.findOne({ sku, horizonWeeks }).sort({ generatedAt: -1 }).lean();
-  if (cached) return cached;
-  if (!refitIfMissing) return null;
   const product = await Product.findOne({ sku }).select('_id sku').lean();
-  if (!product) return null;
+  if (!product) {
+    if (!refitIfMissing) return null;
+    const cached = await Forecast.findOne({ sku, horizonWeeks }).sort({ generatedAt: -1 }).lean();
+    return cached || null;
+  }
   const { series, sourceFrom, sourceTo } = await aggregateWeeklyDemand(product._id);
   const forecast = buildForecast(series, horizonWeeks);
-  return Forecast.findOneAndUpdate(
+  const doc = await Forecast.findOneAndUpdate(
     { sku, horizonWeeks },
     {
       product: product._id,
@@ -112,6 +117,7 @@ export async function getForecast(sku, { horizonWeeks = DEFAULT_HORIZON_WEEKS, r
     },
     { upsert: true, new: true }
   ).lean();
+  return { ...doc, series, weekly: forecast.seriesForecast };
 }
 
 /** ISO week key helper: returns "yyyy-Www" for a Date. */

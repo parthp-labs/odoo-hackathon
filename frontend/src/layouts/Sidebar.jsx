@@ -12,6 +12,7 @@ import {
   LayoutGrid,
   MapPin,
   Boxes,
+  TrendingUp,
   X,
 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
@@ -67,6 +68,7 @@ export default function Sidebar({ open, onClose }) {
           <nav className="flex-1 overflow-y-auto px-3 pb-4 scrollbar-thin">
             <NavItem to="/dashboard" icon={LayoutDashboard} label="Dashboard" onNavigate={onClose} />
             <NavItem to="/warehouse-map" icon={LayoutGrid} label="Warehouse Map" onNavigate={onClose} />
+            <NavItem to="/replenishment" icon={TrendingUp} label="Replenishment" onNavigate={onClose} />
 
             <SectionLabel>Products</SectionLabel>
             <NavItem to="/products" icon={Package} label="Products" onNavigate={onClose} />

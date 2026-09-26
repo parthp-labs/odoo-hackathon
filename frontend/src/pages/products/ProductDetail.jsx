@@ -7,6 +7,7 @@ import Loader from '../../components/ui/Loader'
 import ErrorState from '../../components/ui/ErrorState'
 import StatusBadge from '../../components/ui/StatusBadge'
 import StockByLocation from '../../components/products/StockByLocation'
+import ForecastPanel from '../../components/products/ForecastPanel'
 import { formatNumber, formatEnumLabel } from '../../utils/formatters'
 import { getProduct, getProductStockByLocation } from '../../api/products.api'
 import { getWarehouses } from '../../api/warehouses.api'
@@ -101,6 +102,15 @@ export default function ProductDetail() {
       <Card title="Stock by location">
         <StockByLocation rows={stockRows} />
       </Card>
+
+      <ForecastPanel
+        sku={product.sku}
+        reorderPoint={
+          product.reordering_rules?.length
+            ? product.reordering_rules.reduce((sum, r) => sum + (Number(r.min_quantity) || 0), 0)
+            : undefined
+        }
+      />
 
       <Card title="Reordering rules">
         {(!product.reordering_rules || product.reordering_rules.length === 0) && (

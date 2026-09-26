@@ -95,7 +95,7 @@ export async function getForecast(sku, { horizonWeeks = DEFAULT_HORIZON_WEEKS, e
   const { series, sourceFrom, sourceTo } = await aggregateWeeklyDemand(product._id, { weeks: 60 });
   const f = runSvmForecast(sku, series, { horizonWeeks });
 
-  return Forecast.findOneAndUpdate(
+  const doc = await Forecast.findOneAndUpdate(
     { sku, horizonWeeks },
     {
       product: product._id,
@@ -110,6 +110,9 @@ export async function getForecast(sku, { horizonWeeks = DEFAULT_HORIZON_WEEKS, e
     },
     { upsert: true, new: true }
   ).lean();
+  // `series` = trailing historical weekly demand, `weekly` = per-future-week
+  // forecast (length horizonWeeks) — chart-ready, mirrors the stats engine.
+  return { ...doc, series, weekly: f.weekly };
 }
 
 /**
