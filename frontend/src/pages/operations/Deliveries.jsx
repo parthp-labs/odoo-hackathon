@@ -59,7 +59,7 @@ export default function Deliveries() {
           <div className="w-full sm:w-72">
             <SearchInput
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={setSearch}
               placeholder="Search reference or customer..."
             />
           </div>

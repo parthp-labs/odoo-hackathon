@@ -57,7 +57,7 @@ export default function MoveHistory() {
         <div className="mb-4 w-full sm:w-80">
           <SearchInput
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={setSearch}
             placeholder="Search reference or product..."
           />
         </div>

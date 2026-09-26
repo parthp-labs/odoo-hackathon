@@ -39,10 +39,7 @@ export default function Adjustments() {
       ])
       const internalLocs = locRes.data || []
       setLocations(internalLocs)
-      if (internalLocs.length > 0 && !selectedLocation) {
-        setSelectedLocation(internalLocs[0]._id)
-      }
-      const rawQuants = stockRes.data.data || []
+      const rawQuants = stockRes.data.data || stockRes.data || []
       const normalized = rawQuants.map((q) => ({
         id: q._id || q.id,
         productId: q.product?._id?.toString() || (typeof q.product === 'string' ? q.product : '') || q.productId,
@@ -64,6 +61,14 @@ export default function Adjustments() {
   useEffect(() => {
     loadInitial()
   }, [])
+
+  // Functional update so this can't clobber a location the user already picked,
+  // regardless of how many times loadInitial's effect fires (e.g. StrictMode).
+  useEffect(() => {
+    if (locations.length > 0) {
+      setSelectedLocation((prev) => prev || locations[0]._id)
+    }
+  }, [locations])
 
   // Filter items in current selected location
   const locationItems = stockQuants.filter((q) => q.locationId === selectedLocation)
@@ -92,7 +97,7 @@ export default function Adjustments() {
     try {
       // Find virtual loss location
       const locRes = await client.get('/locations')
-      const allLocs = locRes.data.data || []
+      const allLocs = locRes.data.data || locRes.data || []
       const lossLoc = allLocs.find((l) => l.location_type === 'inventory_loss')
 
       if (!lossLoc) {
@@ -121,7 +126,7 @@ export default function Adjustments() {
       }
 
       const createRes = await client.post('/operations', payload)
-      const opId = createRes.data.data._id
+      const opId = (createRes.data.data || createRes.data)._id
 
       // Immediately validate adjustment operation
       await client.post(`/operations/${opId}/validate`)
@@ -129,7 +134,7 @@ export default function Adjustments() {
 
       // Reload stock data
       const refreshStock = await client.get('/stock')
-      const refreshRaw = refreshStock.data.data || []
+      const refreshRaw = refreshStock.data.data || refreshStock.data || []
       const refreshNormalized = refreshRaw.map((q) => ({
         id: q._id || q.id,
         productId: q.product?._id?.toString() || (typeof q.product === 'string' ? q.product : '') || q.productId,

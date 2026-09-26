@@ -8,11 +8,17 @@ import {
   mockStockByWarehouse,
 } from '../mocks/dashboard.mock'
 
+// Backend wraps responses as { success, data }; client.js already unwraps that
+// for the common case, but this stays safe whether or not it already ran.
+function unwrap(res) {
+  return res.data?.data ?? res.data
+}
+
 export const getDashboardStats = async (params) => {
   if (USE_MOCKS) return mockResolve(mockDashboardStats)
   // Backend returns: { totalProductsInStock, lowStockCount, outOfStockCount, pendingReceipts, pendingDeliveries, internalTransfersScheduled }
   const res = await client.get('/dashboard/kpis', { params })
-  const d = res.data.data || {}
+  const d = unwrap(res) || {}
   const stats = {
     total_products_in_stock: d.totalProductsInStock ?? 0,
     low_stock_count: d.lowStockCount ?? 0,
@@ -27,7 +33,7 @@ export const getDashboardStats = async (params) => {
 export const getLowStockItems = async (params) => {
   if (USE_MOCKS) return mockResolve(mockLowStockItems)
   const res = await client.get('/dashboard/low-stock', { params })
-  const alerts = res.data.data || []
+  const alerts = unwrap(res) || []
   // Adapt to LowStockPanel shape: { _id, name, sku, category, on_hand, min_quantity, status }
   const items = alerts.map((a) => ({
     _id: a.productId,
@@ -44,7 +50,7 @@ export const getLowStockItems = async (params) => {
 export const getRecentActivity = async (params) => {
   if (USE_MOCKS) return mockResolve(mockRecentMoves)
   const res = await client.get('/moves', { params })
-  const moves = res.data.data || []
+  const moves = unwrap(res) || []
   // Adapt to RecentActivity shape: { _id, reference, product_name, source_location_name, destination_location_name, quantity, move_date, user }
   const formatted = moves.slice(0, 10).map((m) => ({
     _id: m.id,
@@ -63,7 +69,7 @@ export const getStockByCategory = async (params) => {
   if (USE_MOCKS) return mockResolve(mockStockByCategory)
   // Aggregate stock availability by category
   const res = await client.get('/stock', { params })
-  const quants = res.data.data || []
+  const quants = unwrap(res) || []
   const categoryMap = {}
   for (const q of quants) {
     const cat = q.product?.category?.name || q.category || 'Uncategorized'
@@ -81,7 +87,7 @@ export const getStockByWarehouse = async (params) => {
   if (USE_MOCKS) return mockResolve(mockStockByWarehouse)
   // Aggregate stock availability by warehouse
   const res = await client.get('/stock', { params })
-  const quants = res.data.data || []
+  const quants = unwrap(res) || []
   const whMap = {}
   for (const q of quants) {
     const wh = q.location?.warehouse?.name || q.warehouseName || 'Main Warehouse'

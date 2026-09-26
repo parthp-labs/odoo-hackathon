@@ -2,16 +2,28 @@ import client from './client'
 import { USE_MOCKS, mockResolve } from './mockHelper'
 import { mockCategories } from '../mocks/categories.mock'
 
+// Backend populates `parent` as { _id, name } (or null). Flatten it to a plain
+// id so <Select> values and categoryMap[id] lookups work the same for every caller.
+function normalize(category) {
+  if (!category) return category
+  return {
+    ...category,
+    parent: category.parent?._id || category.parent || null,
+    parent_name: category.parent?.name || '',
+  }
+}
+
 export const getCategories = async (params) => {
   if (USE_MOCKS) return mockResolve(mockCategories)
   const res = await client.get('/categories', { params })
-  return { data: res.data.data || res.data }
+  const categories = res.data.data || res.data
+  return { data: (categories || []).map(normalize) }
 }
 
 export const getCategory = async (id) => {
   if (USE_MOCKS) return mockResolve(mockCategories.find((c) => c._id === id) || null)
   const res = await client.get(`/categories/${id}`)
-  return { data: res.data.data || res.data }
+  return { data: normalize(res.data.data || res.data) }
 }
 
 export const createCategory = async (payload) => {
