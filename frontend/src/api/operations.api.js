@@ -11,7 +11,19 @@ export const getOperation = async (id) => {
 }
 
 export const createOperation = async (payload) => {
-  const res = await client.post('/operations', payload)
+  // Normalize lines to match backend schema: { product, quantity_demanded, quantity_done }
+  const normalizedLines = (payload.lines || []).map((l) => ({
+    product: l.product || l.productId,
+    quantity_demanded: Number(l.quantity_demanded || l.demand_quantity || 1),
+    quantity_done: Number(l.quantity_done || l.done_quantity || 0),
+  }))
+
+  const body = {
+    ...payload,
+    lines: normalizedLines,
+  }
+
+  const res = await client.post('/operations', body)
   return { data: res.data.data || res.data }
 }
 
@@ -20,8 +32,14 @@ export const updateOperation = async (id, payload) => {
   return { data: res.data.data || res.data }
 }
 
+export const updateLineQuantity = async (operationId, lineId, quantityDone) => {
+  const res = await client.patch(`/operations/${operationId}/lines/${lineId}`, {
+    quantity_done: Number(quantityDone),
+  })
+  return { data: res.data.data || res.data }
+}
+
 export const markOperationReady = async (id) => {
-  // If backend doesn't have mark-ready endpoint, update status to ready via PUT
   try {
     const res = await client.post(`/operations/${id}/mark-ready`)
     return { data: res.data.data || res.data }
@@ -34,7 +52,7 @@ export const markOperationReady = async (id) => {
   }
 }
 
-export const validateOperation = async (id, payload) => {
+export const validateOperation = async (id, payload = {}) => {
   const res = await client.post(`/operations/${id}/validate`, payload)
   return { data: res.data.data || res.data }
 }
