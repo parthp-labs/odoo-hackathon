@@ -8,12 +8,6 @@ import {
 } from '../mocks/products.mock'
 import { mockLocations } from '../mocks/locations.mock'
 
-// Backend wraps responses as { success, data }; client.js already unwraps that
-// for the common case, but this stays safe whether or not it already ran.
-function unwrap(res) {
-  return res.data?.data ?? res.data
-}
-
 function toListItem(product) {
   return {
     ...product,
@@ -54,8 +48,8 @@ export const getProducts = async (params = {}) => {
     client.get('/stock'),
   ])
 
-  let products = unwrap(productsRes) || []
-  const stockQuants = unwrap(stockRes) || []
+  let products = productsRes.data.data || []
+  const stockQuants = stockRes.data.data || []
 
   // Build map of on-hand & reserved per product
   const stockMap = {}
@@ -112,6 +106,18 @@ export const getProducts = async (params = {}) => {
   }
 }
 
+// Lightweight name/uom lookup — skips the /stock join and per-product on-hand
+// computation that getProducts() does, for screens that only need labels
+// (e.g. the Replenishment table, which already gets on-hand from its own data).
+export const getProductCatalog = async () => {
+  if (USE_MOCKS) {
+    return mockResolve(mockProducts.map((p) => ({ _id: p._id, sku: p.sku, name: p.name, uom: p.uom })))
+  }
+  const res = await client.get('/products')
+  const products = res.data || []
+  return { data: products.map((p) => ({ _id: p._id, sku: p.sku, name: p.name, uom: p.uom })) }
+}
+
 export const getProduct = async (id) => {
   if (USE_MOCKS) {
     const product = mockProducts.find((p) => p._id === id)
@@ -123,10 +129,10 @@ export const getProduct = async (id) => {
     client.get(`/stock?product=${id}`),
   ])
 
-  const product = unwrap(productRes)
+  const product = productRes.data.data
   if (!product) return { data: null }
 
-  const stockQuants = unwrap(stockRes) || []
+  const stockQuants = stockRes.data.data || []
   const onHand = stockQuants.reduce((sum, q) => sum + Number(q.quantity ?? q.onHand ?? 0), 0)
   const reserved = stockQuants.reduce((sum, q) => sum + Number(q.reserved_quantity ?? q.reserved ?? 0), 0)
   const minQty = (product.reordering_rules || []).reduce((sum, r) => sum + (Number(r.min_quantity) || 0), 0)
@@ -176,7 +182,7 @@ export const getProductStockByLocation = async (id) => {
   }
 
   const res = await client.get(`/stock?product=${id}`)
-  const quants = unwrap(res) || []
+  const quants = res.data.data || []
   const rows = quants.map((q) => {
     const locId = q.location?._id || q.locationId || ''
     const locName = q.location?.name || q.locationName || 'Unknown Location'
@@ -232,13 +238,13 @@ export const createProduct = async (payload) => {
     reordering_rules: normalizeReorderingRules(reordering_rules),
   })
 
-  const createdProduct = unwrap(res)
+  const createdProduct = res.data.data
 
   // If initial quantity and location were selected, create an initial inventory adjustment or receipt
   if (initial_location && Number(initial_quantity) > 0 && createdProduct?._id) {
     try {
       const locRes = await client.get('/locations')
-      const allLocs = unwrap(locRes) || []
+      const allLocs = locRes.data.data || []
       const vendorLoc = allLocs.find((l) => l.location_type === 'vendor') || allLocs.find((l) => l.location_type !== 'internal')
 
       if (vendorLoc?._id) {
@@ -256,7 +262,7 @@ export const createProduct = async (payload) => {
             },
           ],
         })
-        const opId = unwrap(opRes)?._id
+        const opId = opRes.data?.data?._id
         if (opId) {
           await client.post(`/operations/${opId}/validate`)
         }
@@ -285,7 +291,7 @@ export const updateProduct = async (id, payload) => {
     reordering_rules: normalizeReorderingRules(reordering_rules),
   })
 
-  return { data: unwrap(res) }
+  return { data: res.data.data }
 }
 
 export const deleteProduct = async (id) => {

@@ -57,31 +57,33 @@ export async function aggregateWeeklyDemand(productId, { weeks = 60, now = new D
 }
 
 /**
- * Refit and persist a forecast snapshot for every active product.
+ * Refit and persist a forecast snapshot for every active product, concurrently
+ * (each product's refit is independent — no shared state between iterations).
  */
 export async function refitAll({ horizonWeeks = DEFAULT_HORIZON_WEEKS } = {}) {
   const products = await Product.find({ is_active: true }).select('_id sku category name').lean();
-  const results = [];
-  for (const p of products) {
-    const { series, sourceFrom, sourceTo } = await aggregateWeeklyDemand(p._id);
-    const forecast = buildForecast(series, horizonWeeks);
-    await Forecast.findOneAndUpdate(
-      { sku: p.sku, horizonWeeks },
-      {
-        product: p._id,
-        sku: p.sku,
-        horizonWeeks,
-        forecastedDemand: forecast.pointForecast,
-        quantiles: forecast.quantiles,
-        modelType: forecast.method,
-        generatedAt: new Date(),
-        sourceDataFrom: sourceFrom,
-        sourceDataTo: sourceTo,
-      },
-      { upsert: true, new: true }
-    );
-    results.push({ sku: p.sku, method: forecast.method, pointForecast: forecast.pointForecast });
-  }
+  const results = await Promise.all(
+    products.map(async (p) => {
+      const { series, sourceFrom, sourceTo } = await aggregateWeeklyDemand(p._id);
+      const forecast = buildForecast(series, horizonWeeks);
+      await Forecast.findOneAndUpdate(
+        { sku: p.sku, horizonWeeks },
+        {
+          product: p._id,
+          sku: p.sku,
+          horizonWeeks,
+          forecastedDemand: forecast.pointForecast,
+          quantiles: forecast.quantiles,
+          modelType: forecast.method,
+          generatedAt: new Date(),
+          sourceDataFrom: sourceFrom,
+          sourceDataTo: sourceTo,
+        },
+        { upsert: true, new: true }
+      );
+      return { sku: p.sku, method: forecast.method, pointForecast: forecast.pointForecast };
+    })
+  );
   return results;
 }
 

@@ -80,16 +80,15 @@ export async function recommendReorder(sku, opts = {}) {
 
 /**
  * Reorder for every SKU that currently has a forecast snapshot.
+ * Recommendations are independent per SKU (each just reads/writes its own
+ * ReorderSuggestion doc), so run them concurrently instead of one at a time —
+ * with many SKUs, a sequential loop turns into seconds of round-trip latency.
  * @returns {Promise<Array<object>>}
  */
 export async function recommendAll(opts = {}) {
   const skus = await Forecast.distinct('sku');
-  const out = [];
-  for (const sku of skus) {
-    const rec = await recommendReorder(sku, opts);
-    if (rec) out.push(rec);
-  }
-  return out;
+  const results = await Promise.all(skus.map((sku) => recommendReorder(sku, opts)));
+  return results.filter(Boolean);
 }
 
 /**
