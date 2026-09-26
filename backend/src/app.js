@@ -3,8 +3,9 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 
-import healthRoutes from './routes/health.js';
-import errorHandler from './middlewares/errorHandler.js';
+import healthRoutes from './routes/health.route.js';
+import authRoutes from './routes/auth.route.js';
+import errorHandler from './middlewares/error.middleware.js';
 import ErrorResponse from './utils/errorResponse.js';
 
 const app = express();
@@ -32,6 +33,7 @@ app.get('/', (req, res) => {
 
 // API Routes
 app.use('/api', healthRoutes);
+app.use('/api/auth', authRoutes);
 
 // 404 Catch-all Handler
 app.use((req, res, next) => {
