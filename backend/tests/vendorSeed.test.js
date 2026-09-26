@@ -11,9 +11,12 @@ import {
   VENDOR_SEED,
   VENDOR_CATEGORIES,
   SEED_SKU_SPECS,
+  EXTENDED_SKU_SPECS,
+  ALL_SKU_SPECS,
   CITY_STATE_CODE,
   generateVendorDataset,
 } from '../src/scripts/seedVendors.js';
+import { generateCatalog } from '../src/scripts/demoCatalog.js';
 
 const GSTIN_SHAPE = /^\d{2}[A-Z]{5}\d{4}[A-Z]\dZ[A-Z\d]$/;
 
@@ -69,18 +72,47 @@ describe('Vendor seed dataset (pure generator, hermetic)', () => {
     }
   });
 
-  it('every seeded SKU has >=5 price rows (>=35 total)', () => {
-    assert.ok(dataset.prices.length >= 7 * 5, `expected >=35 prices, got ${dataset.prices.length}`);
-    for (const { sku } of SEED_SKU_SPECS) {
+  it('every priced SKU has >=5 price rows from distinct vendors', () => {
+    assert.ok(dataset.prices.length >= ALL_SKU_SPECS.length * 5,
+      `expected >=${ALL_SKU_SPECS.length * 5} prices, got ${dataset.prices.length}`);
+    for (const { sku } of ALL_SKU_SPECS) {
       const rows = dataset.prices.filter((p) => p.sku === sku);
       assert.ok(rows.length >= 5, `${sku} has ${rows.length} price rows, want >=5`);
       const vendorsPerSku = new Set(rows.map((r) => r.vendorCode));
       assert.strictEqual(vendorsPerSku.size, rows.length, `${sku}: vendors must be distinct per SKU`);
     }
-    const extraSkus = new Set(
-      dataset.prices.map((p) => p.sku).filter((s) => !SEED_SKU_SPECS.some((x) => x.sku === s))
-    );
+    // No price row may reference a SKU the seeder does not declare — a stale
+    // spec list would otherwise silently price the wrong catalog.
+    const declared = new Set(ALL_SKU_SPECS.map((s) => s.sku));
+    const extraSkus = new Set(dataset.prices.map((p) => p.sku).filter((s) => !declared.has(s)));
     assert.strictEqual(extraSkus.size, 0, `unexpected SKUs priced: ${[...extraSkus]}`);
+  });
+
+  it('prices the full seeded catalog, not just the 7 anchor SKUs', () => {
+    // Regression guard: the original seed priced only SEED_SKU_SPECS, which
+    // left 36 of the 43 seeded products with no vendor quotes and an empty
+    // vendor list on the replenishment screen.
+    assert.ok(EXTENDED_SKU_SPECS.length >= 30,
+      `expected the extended spec list to cover the catalog, got ${EXTENDED_SKU_SPECS.length}`);
+    assert.strictEqual(ALL_SKU_SPECS.length, SEED_SKU_SPECS.length + EXTENDED_SKU_SPECS.length);
+    const anchorSkus = new Set(SEED_SKU_SPECS.map((s) => s.sku));
+    for (const spec of EXTENDED_SKU_SPECS) {
+      assert.ok(!anchorSkus.has(spec.sku), `${spec.sku} is an anchor and must not be duplicated`);
+      assert.ok(spec.base > 0, `${spec.sku} has no base price`);
+    }
+  });
+
+  it('covers every extended SKU that the product catalog declares', () => {
+    // demoCatalog and EXTENDED_SKU_SPECS are maintained separately; if the
+    // catalog gains a product without a price spec, that product silently has
+    // no vendors. This test is the drift alarm.
+    const catalogSkus = generateCatalog()
+      .products.filter((p) => !p.anchor)
+      .map((p) => p.sku)
+      .sort();
+    const pricedSkus = EXTENDED_SKU_SPECS.map((s) => s.sku).sort();
+    assert.deepStrictEqual(catalogSkus, pricedSkus,
+      'demoCatalog non-anchor products and EXTENDED_SKU_SPECS have drifted apart');
   });
 
   it('price rows carry valid fields', () => {

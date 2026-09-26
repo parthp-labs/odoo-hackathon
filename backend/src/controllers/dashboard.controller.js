@@ -216,24 +216,35 @@ export const getLowStockAlerts = asyncHandler(async (req, res, next) => {
 
     const totalOnHand = quants.reduce((sum, q) => sum + q.quantity, 0);
 
+    // One alert per PRODUCT, not per reordering rule. A product stocked at
+    // several warehouses carries several rules, and emitting a row for each
+    // made the same product appear multiple times in the alerts list while
+    // getDashboardKPIs counted it once — the two views then disagreed
+    // (e.g. KPI "2 low stock" vs a 3-row list). Keep the most urgent rule:
+    // the highest min_quantity the product is actually breaching.
+    let breached = null;
     for (const rule of product.reordering_rules) {
       if (warehouse && rule.warehouse._id.toString() !== warehouse.toString()) continue;
-
-      if (totalOnHand <= rule.min_quantity) {
-        alerts.push({
-          productId: product._id,
-          productName: product.name,
-          sku: product.sku,
-          uom: product.uom,
-          category: product.category?.name || 'Uncategorized',
-          warehouseName: rule.warehouse.name,
-          warehouseCode: rule.warehouse.code,
-          onHand: totalOnHand,
-          minThreshold: rule.min_quantity,
-          maxTarget: rule.max_quantity,
-          isOutOfStock: totalOnHand === 0,
-        });
+      if (totalOnHand > rule.min_quantity) continue;
+      if (!breached || rule.min_quantity > breached.min_quantity) {
+        breached = rule;
       }
+    }
+
+    if (breached) {
+      alerts.push({
+        productId: product._id,
+        productName: product.name,
+        sku: product.sku,
+        uom: product.uom,
+        category: product.category?.name || 'Uncategorized',
+        warehouseName: breached.warehouse.name,
+        warehouseCode: breached.warehouse.code,
+        onHand: totalOnHand,
+        minThreshold: breached.min_quantity,
+        maxTarget: breached.max_quantity,
+        isOutOfStock: totalOnHand === 0,
+      });
     }
   }
 

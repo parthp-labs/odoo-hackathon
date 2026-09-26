@@ -32,7 +32,10 @@ import { mulberry32, hashStringToSeed } from './generateHistory.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+// Local backend/.env overrides the shared repo-root .env; dotenv does not
+// clobber already-set vars, so the local file is loaded first.
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
 export const VENDOR_SEED = 20260927; // fixed seed constant — do not change
 export const VENDOR_TARGET_COUNT = 120;
@@ -101,6 +104,68 @@ export const SEED_SKU_SPECS = [
 export const BASE_PRICE_INR = Object.fromEntries(SEED_SKU_SPECS.map((s) => [s.sku, s.base]));
 const DEFAULT_BASE_PRICE_INR = 500;
 
+// ---------------------------------------------------------------------------
+// Extended catalog pricing.
+//
+// The original seed priced only the 7 anchor SKUs, which left 36 of the 43
+// seeded products with NO vendor quotes — so the replenishment screen showed
+// "order X units" with an empty vendor list for most of the catalog. The rows
+// below give every extended SKU an illustrative base price, keyed by the
+// catalog's own category so a vendor of the right trade quotes it.
+//
+// These are ILLUSTRATIVE ₹ figures for a demo: plausible magnitudes for each
+// unit of measure, not real market quotes. They are demo data, exactly like the
+// 7 anchor prices above.
+// ---------------------------------------------------------------------------
+export const EXTENDED_SKU_SPECS = [
+  // Metals & Alloys
+  { sku: 'STEEL-PLATE-6MM', category: 'Metals & Alloys', uom: 'kg', base: 72 },
+  { sku: 'STEEL-SHEET-2MM', category: 'Metals & Alloys', uom: 'kg', base: 88 },
+  { sku: 'TUBE-SS-304-25MM', category: 'Metals & Alloys', uom: 'm', base: 610 },
+  { sku: 'ANGLE-MILD-40X40', category: 'Metals & Alloys', uom: 'kg', base: 66 },
+  // Hardware
+  { sku: 'SWITCH-MCCB-100A', category: 'Hardware', uom: 'units', base: 3450 },
+  { sku: 'LIGHT-LED-PANEL-40W', category: 'Hardware', uom: 'units', base: 640 },
+  { sku: 'CONDUIT-PVC-25MM', category: 'Hardware', uom: 'm', base: 42 },
+  // Packaging
+  { sku: 'CARTON-SMALL-12IN', category: 'Raw Materials', uom: 'pieces', base: 18 },
+  { sku: 'CARTON-LARGE-24IN', category: 'Raw Materials', uom: 'pieces', base: 42 },
+  { sku: 'WRAP-STRETCH-500MM', category: 'Raw Materials', uom: 'rolls', base: 385 },
+  { sku: 'TAPE-BROWN-48MM', category: 'Raw Materials', uom: 'rolls', base: 95 },
+  { sku: 'PALLET-WOOD-STD', category: 'Raw Materials', uom: 'pieces', base: 640 },
+  { sku: 'LABEL-THERMAL-100X150', category: 'Raw Materials', uom: 'rolls', base: 175 },
+  { sku: 'PACK-BUBBLE-1M', category: 'Raw Materials', uom: 'rolls', base: 890 },
+  { sku: 'PACK-EDGE-GUARD-1M', category: 'Raw Materials', uom: 'pieces', base: 26 },
+  { sku: 'PACK-STRAP-PP-12MM', category: 'Raw Materials', uom: 'rolls', base: 420 },
+  // Electrical
+  { sku: 'WIRE-CU-2.5SQ', category: 'Hardware', uom: 'm', base: 96 },
+  { sku: 'CABLE-3C-2.5', category: 'Hardware', uom: 'm', base: 385 },
+  // Safety & PPE
+  { sku: 'PPE-GLOVE-NITRILE-M', category: 'Raw Materials', uom: 'pairs', base: 42 },
+  { sku: 'PPE-VEST-HIVIS', category: 'Raw Materials', uom: 'units', base: 285 },
+  { sku: 'PPE-GOGGLE-CLEAR', category: 'Raw Materials', uom: 'units', base: 210 },
+  { sku: 'PPE-RESPIRATOR-N95', category: 'Raw Materials', uom: 'units', base: 340 },
+  { sku: 'PPE-FIRSTAID-KIT', category: 'Raw Materials', uom: 'units', base: 1450 },
+  { sku: 'SAFETY-FIREEXT-6KG', category: 'Raw Materials', uom: 'units', base: 4250 },
+  // Furniture
+  { sku: 'TABLE-PACK-BENCH', category: 'Furniture', uom: 'units', base: 8950 },
+  { sku: 'SHELF-STEEL-5TIER', category: 'Furniture', uom: 'units', base: 7400 },
+  { sku: 'BIN-PLASTIC-60L', category: 'Furniture', uom: 'units', base: 480 },
+  { sku: 'DOLLY-PLATFORM-4W', category: 'Furniture', uom: 'units', base: 5600 },
+  { sku: 'MAT-ANTI-FATIGUE', category: 'Furniture', uom: 'units', base: 1250 },
+  // Raw Materials
+  { sku: 'ADHESIVE-WORKBENCH', category: 'Raw Materials', uom: 'tubes', base: 245 },
+  { sku: 'RESIN-EPOXY-1KG', category: 'Raw Materials', uom: 'kg', base: 780 },
+  { sku: 'ABRASIVE-GRIND-115', category: 'Raw Materials', uom: 'pieces', base: 48 },
+  { sku: 'ABRASIVE-CUT-115', category: 'Raw Materials', uom: 'pieces', base: 36 },
+  { sku: 'ABRASIVE-BRUSH-WIRE', category: 'Raw Materials', uom: 'pieces', base: 165 },
+  { sku: 'SOLDER-FLUX-100G', category: 'Raw Materials', uom: 'tubes', base: 310 },
+  { sku: 'LUBE-HD-500ML', category: 'Raw Materials', uom: 'tubes', base: 420 },
+];
+
+/** Every SKU this seeder prices: the 7 anchors first, then the extended set. */
+export const ALL_SKU_SPECS = [...SEED_SKU_SPECS, ...EXTENDED_SKU_SPECS];
+
 const MOQ_TIERS = [25, 50, 100];
 const PRICE_TIERS_PER_SKU = 6; // >=5 distinct vendors quote each SKU
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -167,7 +232,7 @@ function generatePriceRows(vendors, seed) {
   }
 
   const prices = [];
-  for (const { sku, category, uom, base } of SEED_SKU_SPECS) {
+  for (const { sku, category, uom, base } of ALL_SKU_SPECS) {
     const pool = [...(byCategory.get(category) || [])];
     if (pool.length < PRICE_TIERS_PER_SKU) {
       throw new Error(`not enough ${category} vendors to price ${sku}`);
@@ -255,11 +320,12 @@ const runVendorSeed = async () => {
   const vendorIdByCode = new Map(created.map((v) => [v.vendorCode, v._id]));
 
   console.log('--- 3. Seeding vendor prices per seeded product ---');
-  // Scope to the base-seeded SKUs: other suites create throwaway products in
-  // the same shared demo DB and must not collect demo price rows.
+  // Scope to the SKUs this seeder prices (the 7 anchors + the extended
+  // catalog). Other suites create throwaway products in the same shared demo
+  // DB and must not collect demo price rows.
   const products = await Product.find({
     is_active: true,
-    sku: { $in: SEED_SKU_SPECS.map((s) => s.sku) },
+    sku: { $in: ALL_SKU_SPECS.map((s) => s.sku) },
   }).sort({ createdAt: 1, sku: 1 });
   if (products.length === 0) throw new Error('No seeded active products found — run seed.js first');
 

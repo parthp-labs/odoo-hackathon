@@ -19,11 +19,19 @@ const generateReference = async (operationType) => {
   const year = new Date().getFullYear();
   const pattern = new RegExp(`^${prefix}/${year}/`);
 
-  const count = await StockOperation.countDocuments({
-    reference: { $regex: pattern },
-  });
+  // Use the highest existing sequence, not the row count. `count + 1` is wrong
+  // whenever the two differ: a seeded history with gaps (or any canceled /
+  // deleted operation) makes the count lower than the true max, so the next
+  // insert collides with the unique `reference` index — e.g. with 32 seeded
+  // INT/2026/00NN rows, a new transfer computed INT/2026/0033 which already
+  // existed, and the insert failed with E11000.
+  const last = await StockOperation.findOne({ reference: pattern })
+    .sort({ reference: -1 })
+    .select("reference")
+    .lean();
 
-  const nextSeq = String(count + 1).padStart(4, "0");
+  const lastSeq = last ? Number.parseInt(String(last.reference).split("/").pop(), 10) : 0;
+  const nextSeq = String((Number.isFinite(lastSeq) ? lastSeq : 0) + 1).padStart(4, "0");
   return `${prefix}/${year}/${nextSeq}`;
 };
 

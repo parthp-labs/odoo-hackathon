@@ -44,6 +44,68 @@ export const BASE_WEEKLY_DEMAND = {
   'PASTE-THERM-10G': 18, // tubes
   'HELM-SAFE-YEL': 8, // units
 };
+
+// Weekly demand hints for the EXTENDED catalog (everything except the 7 anchor
+// SKUs above). These products are NOT covered by the frozen SVR artifact, so
+// they get a baseline trailing-mean forecast instead of an SVR one — but they
+// still need a real weekly series so the demand charts, reorder candidates, and
+// operations history are not empty for them.
+//
+// The anchor SKUs are deliberately NOT repeated here: their series is frozen by
+// BASE_WEEKLY_DEMAND above and is what the trained model and the
+// synthetic_series.json parity fixture were built from. Adding an entry for one
+// of them would silently change the model.
+export const EXTRA_WEEKLY_DEMAND = {
+  'STEEL-PLATE-6MM': 220,
+  'STEEL-SHEET-2MM': 160,
+  'TUBE-SS-304-25MM': 90,
+  'ANGLE-MILD-40X40': 130,
+  'WIRE-CU-2.5SQ': 420,
+  'CABLE-3C-2.5': 240,
+  'SWITCH-MCCB-100A': 30,
+  'LIGHT-LED-PANEL-40W': 55,
+  'CONDUIT-PVC-25MM': 300,
+  'CARTON-SMALL-12IN': 650,
+  'CARTON-LARGE-24IN': 320,
+  'WRAP-STRETCH-500MM': 85,
+  'TAPE-BROWN-48MM': 130,
+  'PALLET-WOOD-STD': 45,
+  'LABEL-THERMAL-100X150': 50,
+  'PPE-GLOVE-NITRILE-M': 210,
+  'PPE-VEST-HIVIS': 90,
+  'PPE-GOGGLE-CLEAR': 65,
+  'PPE-RESPIRATOR-N95': 110,
+  'PPE-FIRSTAID-KIT': 18,
+  'SAFETY-FIREEXT-6KG': 14,
+  'TABLE-PACK-BENCH': 14,
+  'SHELF-STEEL-5TIER': 22,
+  'BIN-PLASTIC-60L': 65,
+  'DOLLY-PLATFORM-4W': 18,
+  'MAT-ANTI-FATIGUE': 26,
+  'PACK-BUBBLE-1M': 44,
+  'PACK-EDGE-GUARD-1M': 300,
+  'PACK-STRAP-PP-12MM': 62,
+  'ADHESIVE-WORKBENCH': 38,
+  'RESIN-EPOXY-1KG': 22,
+  'ABRASIVE-GRIND-115': 170,
+  'ABRASIVE-CUT-115': 195,
+  'ABRASIVE-BRUSH-WIRE': 85,
+  'SOLDER-FLUX-100G': 32,
+  'LUBE-HD-500ML': 44,
+};
+
+/** Every SKU the generator can emit a series for, anchors first. */
+export const ALL_WEEKLY_DEMAND = { ...BASE_WEEKLY_DEMAND, ...EXTRA_WEEKLY_DEMAND };
+
+/**
+ * Resolve a SKU's weekly demand base, or null if the SKU is not part of the
+ * synthetic demand dataset.
+ */
+export function weeklyDemandFor(sku) {
+  if (Object.hasOwn(BASE_WEEKLY_DEMAND, sku)) return BASE_WEEKLY_DEMAND[sku];
+  if (Object.hasOwn(EXTRA_WEEKLY_DEMAND, sku)) return EXTRA_WEEKLY_DEMAND[sku];
+  return null;
+}
 const DEFAULT_BASE_WEEKLY_DEMAND = 10;
 
 // mulberry32 — small deterministic PRNG.
@@ -70,12 +132,54 @@ export function hashStringToSeed(str) {
 // Index rule guarantees at least one product per profile with 7 seeded items:
 //   first product -> D (cold-start), idx%6==3 -> B, idx%6==5 -> C,
 //   even idx -> A, otherwise rotate A/B.
+//
+// IMPORTANT (extended catalog): this function is applied to the ANCHOR SKUS
+// only, and always with the anchor's index in BASE_WEEKLY_DEMAND's own key
+// order — never with its index in the full product list. The frozen SVR
+// artifact and synthetic_series.json were built with the 7 anchors at indices
+// 0..6, so if the 36 extra SKUs were folded into the same index space every
+// anchor's profile would shift and the model would no longer match its
+// training data. See anchorIndexFor().
 export function assignProfile(index) {
   if (index === 0) return 'D';
   if (index % 6 === 3) return 'B';
   if (index % 6 === 5) return 'C';
   if (index % 2 === 0) return 'A';
   return index % 4 === 1 ? 'B' : 'A';
+}
+
+// The anchor SKUs in their frozen order. Index here === the index the model was
+// trained with, so it is the ONLY index that may be passed to assignProfile.
+export const ANCHOR_SKUS = Object.keys(BASE_WEEKLY_DEMAND);
+
+/** The frozen training index of an anchor SKU, or -1 if it is not an anchor. */
+export function anchorIndexFor(sku) {
+  return ANCHOR_SKUS.indexOf(sku);
+}
+
+/**
+ * Profile for a SKU, resolved without depending on how many extra products
+ * exist in the database. Anchors get their frozen training profile; extended
+ * SKUs are assigned by a stable hash of the SKU so adding or removing a product
+ * never changes another product's profile.
+ */
+export function profileForSku(sku) {
+  const anchorIdx = anchorIndexFor(sku);
+  if (anchorIdx >= 0) return assignProfile(anchorIdx);
+  // Extended SKUs: map a stable per-SKU hash into the same profile mix
+  // (A dominant, B/C/D present) without touching the anchor index space.
+  const h = hashStringToSeed(String(sku));
+  switch (h % 10) {
+    case 0:
+    case 1:
+      return 'B';
+    case 2:
+      return 'C';
+    case 3:
+      return 'D';
+    default:
+      return 'A';
+  }
 }
 
 // Pure function: returns an array of `weeks` non-negative weekly quantities.
@@ -165,9 +269,11 @@ const runGenerator = async ({ endDate, weeks } = {}) => {
   if (!primaryStockLoc) throw new Error('No internal stock location found — run seed.js first');
 
   const productsAll = await Product.find({ is_active: true }).sort({ createdAt: 1, sku: 1 });
-  // Only seed SKUs get synthetic history — leftover products from ad-hoc test
-  // runs in the shared demo DB must not pick up synthetic quants/moves.
-  const products = productsAll.filter((p) => Object.hasOwn(BASE_WEEKLY_DEMAND, p.sku));
+  // Only SKUs with a declared weekly-demand base get synthetic history —
+  // leftover products from ad-hoc test runs in the shared demo DB must not pick
+  // up synthetic quants/moves. That set is now the anchors (BASE_WEEKLY_DEMAND)
+  // plus the extended catalog (EXTRA_WEEKLY_DEMAND).
+  const products = productsAll.filter((p) => weeklyDemandFor(p.sku) !== null);
   if (products.length === 0) throw new Error('No seeded active products found — run seed.js first');
 
   // Last run Monday acts as the "today" anchor; the 60th bucket starts there.
@@ -184,9 +290,12 @@ const runGenerator = async ({ endDate, weeks } = {}) => {
 
   for (let idx = 0; idx < products.length; idx += 1) {
     const product = products[idx];
-    const profile = assignProfile(idx);
+    // Profile comes from the SKU, not from its position in this list, so the
+    // anchors keep the profiles the frozen model was trained with even though
+    // the extended catalog now sits in the same table.
+    const profile = profileForSku(product.sku);
     profileCounts[profile] += 1;
-    const baseWeeklyDemand = BASE_WEEKLY_DEMAND[product.sku] ?? DEFAULT_BASE_WEEKLY_DEMAND;
+    const baseWeeklyDemand = weeklyDemandFor(product.sku) ?? DEFAULT_BASE_WEEKLY_DEMAND;
     const series = generateWeeklySeries(profile, effectiveWeeks, {
       seed: HISTORY_SEED,
       sku: product.sku,
