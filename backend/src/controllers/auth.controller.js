@@ -2,8 +2,24 @@ import asyncHandler from "../middlewares/async.middleware.js";
 import ErrorResponse from "../utils/errorResponse.js";
 import User from "../models/user.model.js";
 import OtpVerification from "../models/otpVerification.model.js";
+import TrustedDevice from "../models/trustedDevice.model.js";
 import generateToken from "../utils/generateToken.js";
 import sendEmail from "../utils/sendEmail.js";
+import resolveLoginChallenge from "../utils/otpChallenge.js";
+import {
+  createTrustedToken,
+  mirrorTrustedDevice,
+} from "../utils/trustedDevice.js";
+
+// Login user-shape returned consistently on any successful session.
+const loginUserShape = (user) => ({
+  id: user._id,
+  name: user.name,
+  email: user.email,
+  role: user.role,
+  is_email_verified: user.is_email_verified,
+  status: user.status,
+});
 
 // Helper to generate a 6-digit numeric OTP string
 const generateOtpCode = () => {
@@ -178,14 +194,7 @@ export const verifyEmail = asyncHandler(async (req, res, next) => {
     success: true,
     message: "Email successfully verified! Welcome to StockSense.",
     token,
-    user: {
-      id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      is_email_verified: user.is_email_verified,
-      status: user.status,
-    },
+    user: loginUserShape(user),
   });
 });
 
@@ -249,7 +258,7 @@ export const resendOtp = asyncHandler(async (req, res, next) => {
 // @route   POST /api/auth/login
 // @access  Public
 export const login = asyncHandler(async (req, res, next) => {
-  const { email, password } = req.body;
+  const { email, password, trustedDeviceToken } = req.body;
 
   if (!email || !password) {
     return next(new ErrorResponse("Please provide email and password", 400));
@@ -291,19 +300,211 @@ export const login = asyncHandler(async (req, res, next) => {
     );
   }
 
+  // New-device step-up: when a trustedDeviceToken is supplied, gate login on it.
+  // A valid token means this device has already been verified -> straight to a
+  // session (same { token, user } shape as plain login). Otherwise the caller
+  // must complete an OTP challenge before a token is issued.
+  if (trustedDeviceToken) {
+    const challenge = await resolveLoginChallenge({
+      email: normalizedEmail,
+      trustedDeviceToken,
+      UserModel: User,
+      OtpVerificationModel: OtpVerification,
+      TrustedDeviceModel: TrustedDevice,
+    });
+
+    if (challenge.status === "session") {
+      return res.status(200).json({
+        success: true,
+        token: challenge.token,
+        user: challenge.user,
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      requiresOtpChallenge: true,
+      message:
+        "New device detected. An OTP has been sent to your email to complete login.",
+      email: normalizedEmail,
+    });
+  }
+
+  // Plain login (no trustedDeviceToken) keeps the existing behavior
+  // unchanged: issue a session immediately.
   const token = generateToken(user);
 
   res.status(200).json({
     success: true,
     token,
-    user: {
-      id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      is_email_verified: user.is_email_verified,
-      status: user.status,
-    },
+    user: loginUserShape(user),
+  });
+});
+
+// @desc    Dispatch a step-up OTP for login on a new/unknown device
+// @route   POST /api/auth/request-login-otp
+// @access  Public
+export const requestLoginOtp = asyncHandler(async (req, res, next) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return next(new ErrorResponse("Please provide your email address", 400));
+  }
+
+  const normalizedEmail = email.toLowerCase().trim();
+  const user = await User.findOne({ email: normalizedEmail });
+
+  if (!user) {
+    return next(
+      new ErrorResponse("No account registered with this email", 404),
+    );
+  }
+
+  if (user.status === "disabled") {
+    return next(
+      new ErrorResponse(
+        "Your account has been deactivated. Please contact an admin.",
+        403,
+      ),
+    );
+  }
+
+  // Invalidate any pending login OTPs for this email
+  await OtpVerification.updateMany(
+    { email: normalizedEmail, purpose: "login_otp", is_used: false },
+    { is_used: true },
+  );
+
+  const otpCode = generateOtpCode();
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+  await OtpVerification.create({
+    user_id: user._id,
+    email: normalizedEmail,
+    otp_code: otpCode,
+    purpose: "login_otp",
+    expires_at: expiresAt,
+  });
+
+  await sendEmail({
+    to: normalizedEmail,
+    subject: "StockSense - Email OTP Login",
+    purpose: "Email OTP Login",
+    otpCode,
+    text: `Your StockSense login code is: ${otpCode}. Valid for 10 minutes. Do not share this code with anyone.`,
+    html: `
+      <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+        <h2>StockSense Email OTP Login</h2>
+        <p>To complete your login from a new device, use the code below:</p>
+        <h1 style="color: #4F46E5; letter-spacing: 4px;">${otpCode}</h1>
+        <p>This code will expire in <strong>10 minutes</strong>.</p>
+        <p>If you did not attempt to log in, please secure your account immediately.</p>
+      </div>
+    `,
+  });
+
+  res.status(200).json({
+    success: true,
+    message: "A 6-digit login code has been sent to your email.",
+    email: normalizedEmail,
+  });
+});
+
+// @desc    Complete step-up login with a 6-digit OTP and mark device trusted
+// @route   POST /api/auth/login-otp
+// @access  Public
+export const loginOtp = asyncHandler(async (req, res, next) => {
+  const { email, otp_code } = req.body;
+
+  if (!email || !otp_code) {
+    return next(
+      new ErrorResponse("Please provide email and the 6-digit OTP code", 400),
+    );
+  }
+
+  const normalizedEmail = email.toLowerCase().trim();
+
+  const otpRecord = await OtpVerification.findOne({
+    email: normalizedEmail,
+    purpose: "login_otp",
+    is_used: false,
+    expires_at: { $gt: new Date() },
+  }).sort({ createdAt: -1 });
+
+  if (!otpRecord) {
+    return next(
+      new ErrorResponse(
+        "Invalid or expired login code. Please request a new one.",
+        400,
+      ),
+    );
+  }
+
+  // Check attempt threshold to prevent brute-force
+  if (otpRecord.attempts >= otpRecord.max_attempts) {
+    otpRecord.is_used = true;
+    await otpRecord.save();
+    return next(
+      new ErrorResponse(
+        "Maximum attempts exceeded. Please request a new login code.",
+        400,
+      ),
+    );
+  }
+
+  if (otpRecord.otp_code !== otp_code.trim()) {
+    otpRecord.attempts += 1;
+    await otpRecord.save();
+    return next(
+      new ErrorResponse(
+        `Incorrect code. ${otpRecord.max_attempts - otpRecord.attempts} attempts remaining.`,
+        400,
+      ),
+    );
+  }
+
+  // Mark OTP as used
+  otpRecord.is_used = true;
+  await otpRecord.save();
+
+  const userId = otpRecord.user_id;
+  if (!userId) {
+    return next(new ErrorResponse("User account not found", 404));
+  }
+
+  const user = await User.findById(userId);
+  if (!user) {
+    return next(new ErrorResponse("User account not found", 404));
+  }
+
+  // Activate user if the account is still pending verification (step-up login
+  // proves possession of the email).
+  if (!user.is_email_verified || user.status === "pending_verification") {
+    user.is_email_verified = true;
+    user.status = "active";
+    user.email_verified_at = user.email_verified_at || new Date();
+    await user.save();
+  }
+
+  // Issue the session token and a trusted-device token so the caller can skip
+  // OTP challenge on their next login.
+  const token = generateToken(user);
+  const trustedDeviceToken = createTrustedToken();
+
+  const trustDays = parseInt(process.env.DEVICE_TRUST_DAYS, 10) || 30;
+  await mirrorTrustedDevice({
+    userId: user._id,
+    rawToken: trustedDeviceToken,
+    trustDays,
+    TrustedDeviceModel: TrustedDevice,
+  });
+
+  res.status(200).json({
+    success: true,
+    message: "Login successful on new device.",
+    token,
+    user: loginUserShape(user),
+    trustedDeviceToken,
   });
 });
 

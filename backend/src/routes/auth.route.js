@@ -4,6 +4,8 @@ import {
   verifyEmail,
   resendOtp,
   login,
+  requestLoginOtp,
+  loginOtp,
   forgotPassword,
   resetPassword,
   getMe,
@@ -16,6 +18,8 @@ router.post('/register', register);
 router.post('/verify-email', verifyEmail);
 router.post('/resend-otp', resendOtp);
 router.post('/login', login);
+router.post('/request-login-otp', requestLoginOtp);
+router.post('/login-otp', loginOtp);
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
 router.get('/me', protect, getMe);

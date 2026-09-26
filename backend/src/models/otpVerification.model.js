@@ -20,7 +20,7 @@ const otpVerificationSchema = new mongoose.Schema(
     },
     purpose: {
       type: String,
-      enum: ['email_verification', 'password_reset'],
+      enum: ['email_verification', 'password_reset', 'login_otp'],
       required: [true, 'OTP purpose is required'],
     },
     attempts: {
