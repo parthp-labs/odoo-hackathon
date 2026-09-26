@@ -13,6 +13,7 @@ import StockQuant from '../../models/stockQuant.model.js';
 import VendorPrice from '../../models/vendorPrice.model.js';
 import Vendor from '../../models/vendor.model.js';
 import ReorderSuggestion from '../../models/reorderSuggestion.model.js';
+import { withSampleLabel } from '../vendors/sampleLabel.js';
 
 const Z_BY_SERVICE = { 90: 1.28, 95: 1.65, 98: 2.05, 99: 2.33 };
 const DEFAULT_SERVICE_LEVEL = 95;
@@ -128,7 +129,8 @@ export async function listSourceableVendors(sku, productId, { limit = 5 } = {}) 
       sku,
     });
   }
-  return out;
+  // Reorder suggestions embed these rows, so they need the same demo badge.
+  return out.map(withSampleLabel);
 }
 
 /**

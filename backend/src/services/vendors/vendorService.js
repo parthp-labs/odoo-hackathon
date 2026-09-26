@@ -5,6 +5,7 @@
 import Product from '../../models/product.model.js';
 import Vendor from '../../models/vendor.model.js';
 import VendorPrice from '../../models/vendorPrice.model.js';
+import { withSampleLabel } from './sampleLabel.js';
 
 /**
  * Search products by SKU (exact) or name/sku text; returns matching products.
@@ -79,25 +80,28 @@ export async function getBestPricesForProduct(productIdOrProduct, opts = {}) {
     });
   }
 
-  return out;
+  // Every row carries isSample/sampleLabel so the UI can badge demo data.
+  return out.map(withSampleLabel);
 }
 
 /** Search vendors by name/city text (for a directory-style search). */
 export async function searchVendors(query, { limit = 20 } = {}) {
   const q = (query || '').trim();
   if (!q) return [];
+  const VENDOR_FIELDS = 'vendorCode name city state gstin source isVerified';
   const text = await Vendor.find({ $text: { $search: q } })
-    .select('vendorCode name city state gstin source isVerified')
+    .select(VENDOR_FIELDS)
     .limit(limit)
     .lean()
     .catch(() => []);
-  if (text.length) return text;
-  return Vendor.find({
+  if (text.length) return text.map(withSampleLabel);
+  const rows = await Vendor.find({
     $or: [{ name: new RegExp(escapeRe(q), 'i') }, { city: new RegExp(escapeRe(q), 'i') }],
   })
-    .select('vendorCode name city state gstin source isVerified')
+    .select(VENDOR_FIELDS)
     .limit(limit)
     .lean();
+  return rows.map(withSampleLabel);
 }
 
 function resolveProduct(idOrObj) {

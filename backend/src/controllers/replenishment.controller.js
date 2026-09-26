@@ -74,7 +74,10 @@ export const getProductVendors = asyncHandler(async (req, res, next) => {
   const [product] = await marketPort.searchProducts(sku, { limit: 1 });
   if (!product) return next(new ErrorResponse(`No such SKU: ${sku}`, 404));
   const prices = await marketPort.getBestPricesForProduct(product, { live: true });
-  return res.status(200).json({ success: true, data: { product, vendors: prices } });
+  // demoData lets a client branch once instead of inspecting every row; each
+  // row also carries isSample/sampleLabel (see services/vendors/sampleLabel.js).
+  const demoData = prices.every((p) => p.isSample === true);
+  return res.status(200).json({ success: true, data: { product, vendors: prices, demoData } });
 });
 
 /**

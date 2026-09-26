@@ -73,6 +73,28 @@ research confirmed there is no legitimate public API for it. So:
 All vendor/price rows are fictional-but-plausible demo data (confidence:'demo', source:'seed').
 No live price APIs are used; this is a self-contained demo dataset.
 
+### Sample labelling (`isSample`)
+
+Every vendor row returned by the API carries two derived fields:
+
+- `isSample: true|false` — one unambiguous flag for the UI to badge demo data
+- `sampleLabel: string` — ready-to-render text, e.g. `Demo data (fictional vendor)`
+
+Both are **derived from provenance, not hardcoded** (see
+`src/services/vendors/sampleLabel.js`): a row is sample data unless it carries
+explicit live provenance (`source` in `live`/`ceda`/`agmarknet`/…). So if a real
+price feed is ever wired in, its rows flip to `isSample:false` on their own
+instead of relying on someone remembering to change a flag.
+
+Applied at all three sinks, so the badge is never missing:
+
+| Sink | Function | Serves |
+|---|---|---|
+| `GET /api/product/:sku/vendors` | `vendorService.getBestPricesForProduct` | vendor price list |
+| `GET /api/vendors/search` | `vendorService.searchVendors` | vendor directory |
+| `GET /api/replenishment/recommendations` | `reorderService.listSourceableVendors` | reorder suggestions |
+
+
 ## Data seeding
 
 - `npm run seed:history` → `node src/scripts/generateHistory.js` writes ~14 months of synthetic
