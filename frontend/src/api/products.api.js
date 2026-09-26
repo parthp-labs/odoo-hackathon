@@ -8,6 +8,12 @@ import {
 } from '../mocks/products.mock'
 import { mockLocations } from '../mocks/locations.mock'
 
+// Backend wraps responses as { success, data }; client.js already unwraps that
+// for the common case, but this stays safe whether or not it already ran.
+function unwrap(res) {
+  return res.data?.data ?? res.data
+}
+
 function toListItem(product) {
   return {
     ...product,
@@ -48,8 +54,8 @@ export const getProducts = async (params = {}) => {
     client.get('/stock'),
   ])
 
-  let products = productsRes.data.data || []
-  const stockQuants = stockRes.data.data || []
+  let products = unwrap(productsRes) || []
+  const stockQuants = unwrap(stockRes) || []
 
   // Build map of on-hand & reserved per product
   const stockMap = {}
@@ -117,10 +123,10 @@ export const getProduct = async (id) => {
     client.get(`/stock?product=${id}`),
   ])
 
-  const product = productRes.data.data
+  const product = unwrap(productRes)
   if (!product) return { data: null }
 
-  const stockQuants = stockRes.data.data || []
+  const stockQuants = unwrap(stockRes) || []
   const onHand = stockQuants.reduce((sum, q) => sum + Number(q.quantity ?? q.onHand ?? 0), 0)
   const reserved = stockQuants.reduce((sum, q) => sum + Number(q.reserved_quantity ?? q.reserved ?? 0), 0)
   const minQty = (product.reordering_rules || []).reduce((sum, r) => sum + (Number(r.min_quantity) || 0), 0)
@@ -170,7 +176,7 @@ export const getProductStockByLocation = async (id) => {
   }
 
   const res = await client.get(`/stock?product=${id}`)
-  const quants = res.data.data || []
+  const quants = unwrap(res) || []
   const rows = quants.map((q) => {
     const locId = q.location?._id || q.locationId || ''
     const locName = q.location?.name || q.locationName || 'Unknown Location'
@@ -226,13 +232,13 @@ export const createProduct = async (payload) => {
     reordering_rules: normalizeReorderingRules(reordering_rules),
   })
 
-  const createdProduct = res.data.data
+  const createdProduct = unwrap(res)
 
   // If initial quantity and location were selected, create an initial inventory adjustment or receipt
   if (initial_location && Number(initial_quantity) > 0 && createdProduct?._id) {
     try {
       const locRes = await client.get('/locations')
-      const allLocs = locRes.data.data || []
+      const allLocs = unwrap(locRes) || []
       const vendorLoc = allLocs.find((l) => l.location_type === 'vendor') || allLocs.find((l) => l.location_type !== 'internal')
 
       if (vendorLoc?._id) {
@@ -250,7 +256,7 @@ export const createProduct = async (payload) => {
             },
           ],
         })
-        const opId = opRes.data?.data?._id
+        const opId = unwrap(opRes)?._id
         if (opId) {
           await client.post(`/operations/${opId}/validate`)
         }
@@ -279,7 +285,7 @@ export const updateProduct = async (id, payload) => {
     reordering_rules: normalizeReorderingRules(reordering_rules),
   })
 
-  return { data: res.data.data }
+  return { data: unwrap(res) }
 }
 
 export const deleteProduct = async (id) => {

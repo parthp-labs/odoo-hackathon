@@ -9,6 +9,17 @@ client.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
+
+  // Strip empty/null/undefined query params so filters like category=""
+  // don't reach the backend as literal query string values.
+  if (config.params) {
+    const cleaned = {}
+    for (const [key, value] of Object.entries(config.params)) {
+      if (value !== '' && value !== null && value !== undefined) cleaned[key] = value
+    }
+    config.params = cleaned
+  }
+
   return config
 })
 

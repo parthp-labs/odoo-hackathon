@@ -82,7 +82,7 @@ export default function ProductList() {
               setPage(1)
             }}
             placeholder="Search by name or SKU..."
-            className="sm:w-72"
+            className="flex-1 sm:min-w-[220px]"
           />
           <Select
             options={categoryOptions}
@@ -92,7 +92,7 @@ export default function ProductList() {
               setCategory(e.target.value)
               setPage(1)
             }}
-            className="sm:w-56"
+            className="sm:w-56 sm:flex-none"
           />
           <Select
             options={STOCK_STATUS_OPTIONS}
@@ -102,7 +102,7 @@ export default function ProductList() {
               setStockStatus(e.target.value)
               setPage(1)
             }}
-            className="sm:w-56"
+            className="sm:w-56 sm:flex-none"
           />
         </div>
 

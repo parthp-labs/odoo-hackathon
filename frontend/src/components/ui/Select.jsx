@@ -7,7 +7,7 @@ const Select = forwardRef(function Select(
   const selectId = id || rest.name
 
   return (
-    <div className="w-full">
+    <div className={`w-full ${className}`}>
       {label && (
         <label htmlFor={selectId} className="mb-1 block text-sm font-medium text-gray-700">
           {label}
@@ -18,7 +18,7 @@ const Select = forwardRef(function Select(
         ref={ref}
         className={`w-full rounded-lg border bg-white px-3 py-2 text-sm text-gray-800 shadow-sm outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary ${
           error ? 'border-red-400' : 'border-gray-300'
-        } ${className}`}
+        }`}
         {...rest}
       >
         <option value="">{placeholder}</option>
