@@ -30,6 +30,34 @@ const locationSchema = new mongoose.Schema(
       enum: ['internal', 'vendor', 'customer', 'inventory_loss', 'transit'],
       default: 'internal',
     },
+    zone: {
+      type: String,
+      trim: true,
+      default: 'Zone A',
+    },
+    aisle: {
+      type: String,
+      trim: true,
+      default: 'A1',
+    },
+    rack: {
+      type: String,
+      trim: true,
+      default: 'Rack 1',
+    },
+    shelf: {
+      type: String,
+      trim: true,
+      default: 'Shelf 1',
+    },
+    position_index: {
+      type: Number,
+      default: 1,
+    },
+    max_capacity: {
+      type: Number,
+      default: 500,
+    },
     is_active: {
       type: Boolean,
       default: true,
