@@ -24,3 +24,5 @@ const server = app.listen(PORT, () => {
 process.on('unhandledRejection', (err) => {
   console.error(`[Unhandled Rejection] ${err.message}`);
 });
+
+export default app;
