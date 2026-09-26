@@ -15,14 +15,14 @@ import moveRoutes from "./routes/move.route.js";
 import dashboardRoutes from "./routes/dashboard.route.js";
 import errorHandler from "./middlewares/error.middleware.js";
 import ErrorResponse from "./utils/errorResponse.js";
-import swaggerUi from "swagger-ui-express";
-import { swaggerDocument } from "./docs/swagger.js";
+import { swaggerDocument, swaggerUiHtml } from "./docs/swagger.js";
 
 const app = express();
 
 // Security and utility middleware
 app.use(
   helmet({
+    contentSecurityPolicy: false,
     crossOriginResourcePolicy: { policy: "cross-origin" },
   }),
 );
@@ -69,9 +69,19 @@ app.get("/", (req, res) => {
   });
 });
 
-// API Documentation (Swagger UI)
-app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
-app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+// API Documentation (Interactive Swagger UI via CDN & JSON spec)
+const handleSwaggerHtml = (req, res) => {
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.send(swaggerUiHtml);
+};
+
+app.get(["/api/docs", "/api/docs/", "/docs", "/docs/"], handleSwaggerHtml);
+app.get(
+  ["/api/docs/swagger.json", "/api/docs/json", "/docs/swagger.json", "/docs/json"],
+  (req, res) => {
+    res.json(swaggerDocument);
+  },
+);
 
 // API Routes
 app.use("/api", healthRoutes);
