@@ -26,7 +26,7 @@ describe('Replenishment API (protected routes)', () => {
     baseUrl = `http://localhost:${server.address().port}/api`;
 
     // Own user with a unique email.
-    myEmail = `repl_${Date.now()}_${Math.floor(Math.random() * 1e4)}@stocksense.test`;
+    myEmail = `repl_${Date.now()}_${Math.floor(Math.random() * 1e4)}@example.com`;
     const r = await fetch(`${baseUrl}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
