@@ -54,19 +54,20 @@ export const getProducts = async (params = {}) => {
   // Build map of on-hand & reserved per product
   const stockMap = {}
   for (const q of stockQuants) {
-    const pId = q.productId
+    const pId = q.product?._id?.toString() || (typeof q.product === 'string' ? q.product : '') || q.productId
+    if (!pId) continue
     if (!stockMap[pId]) {
       stockMap[pId] = { onHand: 0, reserved: 0 }
     }
-    stockMap[pId].onHand += q.onHand || 0
-    stockMap[pId].reserved += q.reserved || 0
+    stockMap[pId].onHand += Number(q.quantity ?? q.onHand ?? 0)
+    stockMap[pId].reserved += Number(q.reserved_quantity ?? q.reserved ?? 0)
   }
 
   let items = products.map((p) => {
     const sm = stockMap[p._id] || { onHand: 0, reserved: 0 }
     const onHand = sm.onHand
     const reserved = sm.reserved
-    const minQty = (p.reordering_rules || []).reduce((sum, r) => sum + (r.min_quantity || 0), 0)
+    const minQty = (p.reordering_rules || []).reduce((sum, r) => sum + (Number(r.min_quantity) || 0), 0)
 
     let stock_status = 'in_stock'
     if (onHand <= 0) {
@@ -120,9 +121,9 @@ export const getProduct = async (id) => {
   if (!product) return { data: null }
 
   const stockQuants = stockRes.data.data || []
-  const onHand = stockQuants.reduce((sum, q) => sum + (q.onHand || 0), 0)
-  const reserved = stockQuants.reduce((sum, q) => sum + (q.reserved || 0), 0)
-  const minQty = (product.reordering_rules || []).reduce((sum, r) => sum + (r.min_quantity || 0), 0)
+  const onHand = stockQuants.reduce((sum, q) => sum + Number(q.quantity ?? q.onHand ?? 0), 0)
+  const reserved = stockQuants.reduce((sum, q) => sum + Number(q.reserved_quantity ?? q.reserved ?? 0), 0)
+  const minQty = (product.reordering_rules || []).reduce((sum, r) => sum + (Number(r.min_quantity) || 0), 0)
 
   let stock_status = 'in_stock'
   if (onHand <= 0) {
@@ -131,11 +132,20 @@ export const getProduct = async (id) => {
     stock_status = 'low_stock'
   }
 
+  const normalizedRules = (product.reordering_rules || []).map((r) => ({
+    ...r,
+    warehouse: r.warehouse?._id || r.warehouse,
+    warehouse_name: r.warehouse?.name || '',
+    min_quantity: Number(r.min_quantity) || 0,
+    max_quantity: Number(r.max_quantity) || 0,
+  }))
+
   return {
     data: {
       ...product,
       category: product.category?._id || product.category,
       category_name: product.category?.name || '',
+      reordering_rules: normalizedRules,
       on_hand_quantity: onHand,
       reserved_quantity: reserved,
       stock_status,
@@ -161,13 +171,23 @@ export const getProductStockByLocation = async (id) => {
 
   const res = await client.get(`/stock?product=${id}`)
   const quants = res.data.data || []
-  const rows = quants.map((q) => ({
-    location_id: q.locationId,
-    location_name: `${q.warehouseName ? q.warehouseName + ' - ' : ''}${q.locationName} (${q.locationCode})`,
-    on_hand: q.onHand,
-    reserved: q.reserved,
-    available: q.freeToUse,
-  }))
+  const rows = quants.map((q) => {
+    const locId = q.location?._id || q.locationId || ''
+    const locName = q.location?.name || q.locationName || 'Unknown Location'
+    const locCode = q.location?.code || q.locationCode || ''
+    const whName = q.location?.warehouse?.name || q.warehouseName || ''
+    const onHand = Number(q.quantity ?? q.onHand ?? 0)
+    const reserved = Number(q.reserved_quantity ?? q.reserved ?? 0)
+    const available = Number(q.free_to_use ?? q.freeToUse ?? Math.max(0, onHand - reserved))
+
+    return {
+      location_id: locId,
+      location_name: `${whName ? whName + ' - ' : ''}${locName}${locCode ? ` (${locCode})` : ''}`,
+      on_hand: onHand,
+      reserved,
+      available,
+    }
+  })
 
   return { data: rows }
 }
@@ -176,7 +196,7 @@ function normalizeReorderingRules(rules = []) {
   return rules
     .filter((r) => r.warehouse)
     .map((r) => ({
-      warehouse: r.warehouse,
+      warehouse: r.warehouse?._id || r.warehouse,
       min_quantity: Number(r.min_quantity) || 0,
       max_quantity: Number(r.max_quantity) || 0,
     }))
@@ -211,19 +231,30 @@ export const createProduct = async (payload) => {
   // If initial quantity and location were selected, create an initial inventory adjustment or receipt
   if (initial_location && Number(initial_quantity) > 0 && createdProduct?._id) {
     try {
-      await client.post('/operations', {
-        operation_type: 'receipt',
-        destination_location: initial_location,
-        partner_name: 'Opening Inventory Balance',
-        notes: 'Initial stock intake upon product creation',
-        lines: [
-          {
-            product: createdProduct._id,
-            demand_quantity: Number(initial_quantity),
-            done_quantity: Number(initial_quantity),
-          },
-        ],
-      })
+      const locRes = await client.get('/locations')
+      const allLocs = locRes.data.data || []
+      const vendorLoc = allLocs.find((l) => l.location_type === 'vendor') || allLocs.find((l) => l.location_type !== 'internal')
+
+      if (vendorLoc?._id) {
+        const opRes = await client.post('/operations', {
+          operation_type: 'receipt',
+          source_location: vendorLoc._id,
+          destination_location: initial_location,
+          partner_name: 'Opening Inventory Balance',
+          notes: 'Initial stock intake upon product creation',
+          lines: [
+            {
+              product: createdProduct._id,
+              quantity_demanded: Number(initial_quantity),
+              quantity_done: Number(initial_quantity),
+            },
+          ],
+        })
+        const opId = opRes.data?.data?._id
+        if (opId) {
+          await client.post(`/operations/${opId}/validate`)
+        }
+      }
     } catch (e) {
       console.warn('Initial stock assignment failed', e);
     }

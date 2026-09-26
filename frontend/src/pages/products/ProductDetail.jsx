@@ -113,7 +113,9 @@ export default function ProductDetail() {
                 key={index}
                 className="flex items-center justify-between rounded-lg border border-gray-200 px-4 py-2 text-sm"
               >
-                <span className="font-medium text-gray-700">{warehouseMap[rule.warehouse] || rule.warehouse}</span>
+                <span className="font-medium text-gray-700">
+                  {rule.warehouse_name || warehouseMap[rule.warehouse?._id || rule.warehouse] || (typeof rule.warehouse === 'object' ? rule.warehouse?.name : rule.warehouse) || 'Warehouse'}
+                </span>
                 <span className="text-gray-500">
                   Min {formatNumber(rule.min_quantity)} &middot; Max {formatNumber(rule.max_quantity)}
                 </span>
