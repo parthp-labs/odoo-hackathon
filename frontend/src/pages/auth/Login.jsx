@@ -28,6 +28,11 @@ export default function Login() {
       const redirectTo = location.state?.from || '/dashboard'
       navigate(redirectTo, { replace: true })
     } catch (err) {
+      if (err.response?.data?.requiresVerification) {
+        toast.error('Please verify your email before logging in.')
+        navigate('/verify-email', { state: { email: values.email } })
+        return
+      }
       setServerError(err.response?.data?.message || 'Unable to sign in. Please try again.')
     }
   }

@@ -1,46 +1,50 @@
-// TODO: backend
 import client from './client'
 import { USE_MOCKS, mockResolve } from './mockHelper'
 import { mockLocations } from '../mocks/locations.mock'
 
-export const getLocations = (params = {}) => {
+export const getLocations = async (params = {}) => {
   if (USE_MOCKS) {
     let items = [...mockLocations]
     if (params.warehouse) items = items.filter((l) => l.warehouse === params.warehouse)
     if (params.location_type) items = items.filter((l) => l.location_type === params.location_type)
     return mockResolve(items)
   }
-  return client.get('/locations', { params })
+  const res = await client.get('/locations', { params })
+  return { data: res.data.data || res.data }
 }
 
-export const getLocation = (id) => {
+export const getLocation = async (id) => {
   if (USE_MOCKS) return mockResolve(mockLocations.find((l) => l._id === id) || null)
-  return client.get(`/locations/${id}`)
+  const res = await client.get(`/locations/${id}`)
+  return { data: res.data.data || res.data }
 }
 
-export const createLocation = (payload) => {
+export const createLocation = async (payload) => {
   if (USE_MOCKS) {
     const created = { _id: `loc-${Date.now()}`, is_active: true, ...payload }
     mockLocations.push(created)
     return mockResolve(created)
   }
-  return client.post('/locations', payload)
+  const res = await client.post('/locations', payload)
+  return { data: res.data.data || res.data }
 }
 
-export const updateLocation = (id, payload) => {
+export const updateLocation = async (id, payload) => {
   if (USE_MOCKS) {
     const existing = mockLocations.find((l) => l._id === id)
     if (existing) Object.assign(existing, payload)
     return mockResolve(existing || { _id: id, ...payload })
   }
-  return client.put(`/locations/${id}`, payload)
+  const res = await client.put(`/locations/${id}`, payload)
+  return { data: res.data.data || res.data }
 }
 
-export const deleteLocation = (id) => {
+export const deleteLocation = async (id) => {
   if (USE_MOCKS) {
     const index = mockLocations.findIndex((l) => l._id === id)
     if (index !== -1) mockLocations.splice(index, 1)
     return mockResolve({ message: 'Location deleted' })
   }
-  return client.delete(`/locations/${id}`)
+  const res = await client.delete(`/locations/${id}`)
+  return { data: res.data }
 }

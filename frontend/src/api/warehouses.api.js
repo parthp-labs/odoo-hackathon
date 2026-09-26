@@ -1,41 +1,45 @@
-// TODO: backend
 import client from './client'
 import { USE_MOCKS, mockResolve } from './mockHelper'
 import { mockWarehouses } from '../mocks/warehouses.mock'
 
-export const getWarehouses = (params) => {
+export const getWarehouses = async (params) => {
   if (USE_MOCKS) return mockResolve(mockWarehouses)
-  return client.get('/warehouses', { params })
+  const res = await client.get('/warehouses', { params })
+  return { data: res.data.data || res.data }
 }
 
-export const getWarehouse = (id) => {
+export const getWarehouse = async (id) => {
   if (USE_MOCKS) return mockResolve(mockWarehouses.find((w) => w._id === id) || null)
-  return client.get(`/warehouses/${id}`)
+  const res = await client.get(`/warehouses/${id}`)
+  return { data: res.data.data || res.data }
 }
 
-export const createWarehouse = (payload) => {
+export const createWarehouse = async (payload) => {
   if (USE_MOCKS) {
     const created = { _id: `wh-${Date.now()}`, ...payload }
     mockWarehouses.push(created)
     return mockResolve(created)
   }
-  return client.post('/warehouses', payload)
+  const res = await client.post('/warehouses', payload)
+  return { data: res.data.data || res.data }
 }
 
-export const updateWarehouse = (id, payload) => {
+export const updateWarehouse = async (id, payload) => {
   if (USE_MOCKS) {
     const existing = mockWarehouses.find((w) => w._id === id)
     if (existing) Object.assign(existing, payload)
     return mockResolve(existing || { _id: id, ...payload })
   }
-  return client.put(`/warehouses/${id}`, payload)
+  const res = await client.put(`/warehouses/${id}`, payload)
+  return { data: res.data.data || res.data }
 }
 
-export const deleteWarehouse = (id) => {
+export const deleteWarehouse = async (id) => {
   if (USE_MOCKS) {
     const index = mockWarehouses.findIndex((w) => w._id === id)
     if (index !== -1) mockWarehouses.splice(index, 1)
     return mockResolve({ message: 'Warehouse deleted' })
   }
-  return client.delete(`/warehouses/${id}`)
+  const res = await client.delete(`/warehouses/${id}`)
+  return { data: res.data }
 }

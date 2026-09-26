@@ -19,8 +19,10 @@ import { getWarehouses } from '../../api/warehouses.api'
 import { getCategories } from '../../api/categories.api'
 import { OPERATION_STATUS, STOCK_STATUS } from '../../utils/constants'
 
+const DEFAULT_FILTERS = { type: '', status: '', warehouse: '', category: '' }
+
 export default function Dashboard() {
-  const { filters, setFilter } = useFilters({ type: '', status: '', warehouse: '', category: '' })
+  const { filters, setFilter } = useFilters(DEFAULT_FILTERS)
   const [warehouses, setWarehouses] = useState([])
   const [categories, setCategories] = useState([])
   const [stats, setStats] = useState(null)
