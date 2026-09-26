@@ -7,8 +7,10 @@ import SearchInput from '../../components/ui/SearchInput'
 import Select from '../../components/ui/Select'
 import { TableSkeleton } from '../../components/ui/Skeleton'
 import ErrorState from '../../components/ui/ErrorState'
+import Pagination from '../../components/ui/Pagination'
 import OperationListTable from '../../components/operations/OperationListTable'
 import { useDebounce } from '../../hooks/useDebounce'
+import { usePagination } from '../../hooks/usePagination'
 import { getOperations } from '../../api/operations.api'
 import { OPERATION_STATUS_OPTIONS } from '../../utils/constants'
 
@@ -18,6 +20,7 @@ export default function Deliveries() {
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || '')
   const [operations, setOperations] = useState([])
   const [status, setStatus] = useState('loading')
+  const { page, limit, setPage } = usePagination(1, 10)
 
   const debouncedSearch = useDebounce(search, 400)
 
@@ -59,7 +62,10 @@ export default function Deliveries() {
           <div className="w-full sm:w-72">
             <SearchInput
               value={search}
-              onChange={setSearch}
+              onChange={(v) => {
+                setSearch(v)
+                setPage(1)
+              }}
               placeholder="Search reference or customer..."
             />
           </div>
@@ -70,6 +76,7 @@ export default function Deliveries() {
               onChange={(e) => {
                 setStatusFilter(e.target.value)
                 setSearchParams(e.target.value ? { status: e.target.value } : {})
+                setPage(1)
               }}
             />
           </div>
@@ -78,11 +85,14 @@ export default function Deliveries() {
         {status === 'loading' && <TableSkeleton rows={5} />}
         {status === 'error' && <ErrorState message="Could not load deliveries" onRetry={loadDeliveries} />}
         {status === 'loaded' && (
+          <>
           <OperationListTable
-            operations={operations}
+            operations={operations.slice((page - 1) * limit, page * limit)}
             emptyTitle="No deliveries found"
             emptyMessage="Create a new delivery to dispatch goods to customers."
           />
+          <Pagination page={page} limit={limit} total={operations.length} onPageChange={setPage} />
+          </>
         )}
       </Card>
     </div>

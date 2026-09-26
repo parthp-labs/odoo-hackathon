@@ -8,7 +8,9 @@ import StatusBadge from '../../components/ui/StatusBadge'
 import { TableSkeleton } from '../../components/ui/Skeleton'
 import EmptyState from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
+import Pagination from '../../components/ui/Pagination'
 import { useDebounce } from '../../hooks/useDebounce'
+import { usePagination } from '../../hooks/usePagination'
 import { getMoves } from '../../api/moves.api'
 import { formatDateTime, formatNumber } from '../../utils/formatters'
 
@@ -28,6 +30,7 @@ export default function MoveHistory() {
   const [search, setSearch] = useState('')
   const [moves, setMoves] = useState([])
   const [status, setStatus] = useState('loading')
+  const { page, limit, setPage } = usePagination(1, 10)
 
   const debouncedSearch = useDebounce(search, 300)
 
@@ -57,7 +60,10 @@ export default function MoveHistory() {
         <div className="mb-4 w-full sm:w-80">
           <SearchInput
             value={search}
-            onChange={setSearch}
+            onChange={(v) => {
+              setSearch(v)
+              setPage(1)
+            }}
             placeholder="Search reference or product..."
           />
         </div>
@@ -72,8 +78,9 @@ export default function MoveHistory() {
           />
         )}
         {status === 'loaded' && moves.length > 0 && (
+          <>
           <Table columns={COLUMNS}>
-            {moves.map((m) => (
+            {moves.slice((page - 1) * limit, page * limit).map((m) => (
               <Tr key={m.id || m._id}>
                 <Td className="text-gray-500 text-xs">{formatDateTime(m.date || m.move_date)}</Td>
                 <Td className="font-semibold text-primary">{m.reference}</Td>
@@ -91,6 +98,8 @@ export default function MoveHistory() {
               </Tr>
             ))}
           </Table>
+          <Pagination page={page} limit={limit} total={moves.length} onPageChange={setPage} />
+          </>
         )}
       </Card>
     </div>

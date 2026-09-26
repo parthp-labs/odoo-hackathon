@@ -8,9 +8,11 @@ import Select from '../../components/ui/Select'
 import Input from '../../components/ui/Input'
 import Loader from '../../components/ui/Loader'
 import ErrorState from '../../components/ui/ErrorState'
+import Pagination from '../../components/ui/Pagination'
 import { getLocations } from '../../api/locations.api'
 import client from '../../api/client'
 import { formatNumber } from '../../utils/formatters'
+import { usePagination } from '../../hooks/usePagination'
 
 const COLUMNS = [
   { key: 'product', label: 'Product' },
@@ -29,6 +31,7 @@ export default function Adjustments() {
   const [countedQuantities, setCountedQuantities] = useState({})
   const [status, setStatus] = useState('loading')
   const [adjustingId, setAdjustingId] = useState(null)
+  const { page, limit, setPage } = usePagination(1, 10)
 
   async function loadInitial() {
     setStatus('loading')
@@ -72,6 +75,7 @@ export default function Adjustments() {
 
   // Filter items in current selected location
   const locationItems = stockQuants.filter((q) => q.locationId === selectedLocation)
+  const paginatedItems = locationItems.slice((page - 1) * limit, page * limit)
 
   function handleCountChange(quantId, val) {
     setCountedQuantities((prev) => ({
@@ -179,7 +183,10 @@ export default function Adjustments() {
               label="Select Internal Location to Audit"
               options={locationOptions}
               value={selectedLocation}
-              onChange={(e) => setSelectedLocation(e.target.value)}
+              onChange={(e) => {
+                setSelectedLocation(e.target.value)
+                setPage(1)
+              }}
             />
           </div>
         </div>
@@ -189,8 +196,9 @@ export default function Adjustments() {
             No active stock records found for this location.
           </div>
         ) : (
+          <>
           <Table columns={COLUMNS}>
-            {locationItems.map((item) => {
+            {paginatedItems.map((item) => {
               const counted = countedQuantities[item.id]
               const hasCounted = counted !== undefined && counted !== ''
               const diff = hasCounted ? Number(counted) - (item.onHand || 0) : 0
@@ -240,6 +248,8 @@ export default function Adjustments() {
               )
             })}
           </Table>
+          <Pagination page={page} limit={limit} total={locationItems.length} onPageChange={setPage} />
+          </>
         )}
       </Card>
     </div>
