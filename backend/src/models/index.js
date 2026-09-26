@@ -7,6 +7,7 @@ import Product from './product.model.js';
 import StockQuant from './stockQuant.model.js';
 import StockOperation from './stockOperation.model.js';
 import StockMove from './stockMove.model.js';
+import Conversation from './conversation.model.js';
 
 export {
   User,
@@ -18,6 +19,7 @@ export {
   StockQuant,
   StockOperation,
   StockMove,
+  Conversation,
 };
 
 export default {
@@ -30,4 +32,5 @@ export default {
   StockQuant,
   StockOperation,
   StockMove,
+  Conversation,
 };

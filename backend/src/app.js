@@ -15,6 +15,7 @@ import moveRoutes from "./routes/move.route.js";
 import dashboardRoutes from "./routes/dashboard.route.js";
 import userRoutes from "./routes/user.route.js";
 import chatbotRoutes from "./routes/chatbot.route.js";
+import agentRoutes from "./routes/agent.route.js";
 import errorHandler from "./middlewares/error.middleware.js";
 import ErrorResponse from "./utils/errorResponse.js";
 import { swaggerDocument, swaggerUiHtml } from "./docs/swagger.js";
@@ -98,6 +99,7 @@ app.use("/api/moves", moveRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/chatbot", chatbotRoutes);
+app.use("/api/agent", agentRoutes);
 
 // 404 Catch-all Handler
 app.use((req, res, next) => {
