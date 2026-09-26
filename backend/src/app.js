@@ -15,6 +15,11 @@ import moveRoutes from "./routes/move.route.js";
 import dashboardRoutes from "./routes/dashboard.route.js";
 import errorHandler from "./middlewares/error.middleware.js";
 import ErrorResponse from "./utils/errorResponse.js";
+<<<<<<< HEAD
+=======
+import swaggerUi from "swagger-ui-express";
+import { swaggerDocument } from "./docs/swagger.js";
+>>>>>>> backend
 
 const app = express();
 
@@ -63,9 +68,13 @@ app.get("/", (req, res) => {
   res.json({
     message: "Welcome to StockSense API",
     version: "1.0.0",
-    docs: "/api/health",
+    docs: "/api/docs",
   });
 });
+
+// API Documentation (Swagger UI)
+app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 // API Routes
 app.use("/api", healthRoutes);
