@@ -116,17 +116,14 @@ export async function getForecast(sku, { horizonWeeks = DEFAULT_HORIZON_WEEKS, e
 }
 
 /**
- * Refit (persist) an SVR forecast snapshot for every active product.
+ * Refit (persist) an SVR forecast snapshot for every active product,
+ * concurrently — each SKU's refit is independent.
  */
 export async function refitAll({ horizonWeeks = DEFAULT_HORIZON_WEEKS, engine = 'svm' } = {}) {
   if (engine === 'stats') return statsPort.refitAll({ horizonWeeks });
   const products = await Product.find({ is_active: true }).select('_id sku').lean();
-  const results = [];
-  for (const p of products) {
-    const doc = await getForecast(p.sku, { horizonWeeks, engine: 'svm' });
-    if (doc) results.push({ sku: doc.sku, modelType: doc.modelType, forecastedDemand: doc.forecastedDemand });
-  }
-  return results;
+  const results = await Promise.all(products.map((p) => getForecast(p.sku, { horizonWeeks, engine: 'svm' })));
+  return results.filter(Boolean).map((doc) => ({ sku: doc.sku, modelType: doc.modelType, forecastedDemand: doc.forecastedDemand }));
 }
 
 export { aggregateWeeklyDemand };

@@ -9,7 +9,7 @@ import KpiCard from '../../components/dashboard/KpiCard'
 import ReplenishmentTable from '../../components/replenishment/ReplenishmentTable'
 import { formatDateTime } from '../../utils/formatters'
 import { getRecommendations, getModelInfo, runRefit } from '../../api/replenishment.api'
-import { getProducts } from '../../api/products.api'
+import { getProductCatalog } from '../../api/products.api'
 
 const ENGINES = [
   { value: 'svm', label: 'SVM (trained)' },
@@ -34,12 +34,12 @@ export default function Replenishment() {
       const [recRes, infoRes, productsRes] = await Promise.all([
         getRecommendations(),
         getModelInfo(),
-        getProducts({ limit: 1000 }),
+        getProductCatalog(),
       ])
       setRecommendations(Array.isArray(recRes.data) ? recRes.data : [])
       setModelInfo(infoRes.data)
       const pMap = Object.fromEntries(
-        (productsRes.data?.items || []).map((p) => [p.sku, p]),
+        (productsRes.data || []).map((p) => [p.sku, p]),
       )
       setProductMap(pMap)
       setStatus('loaded')
