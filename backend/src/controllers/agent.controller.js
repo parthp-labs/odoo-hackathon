@@ -2,7 +2,7 @@ import asyncHandler from '../middlewares/async.middleware.js';
 import ErrorResponse from '../utils/errorResponse.js';
 import { runAgentTurn } from '../agent/loop.js';
 import { canEscalateTo } from '../agent/modes.js';
-import { createMockPort } from '../services/inventory/mockPort.js';
+import { createDbPort } from '../services/inventory/dbPort.js';
 
 // @desc    Chat with the inventory LLM agent
 // @route   POST /api/agent/chat
@@ -28,20 +28,20 @@ export const chat = asyncHandler(async (req, res, next) => {
   }
 
   const result = await runAgentTurn({
-    role: req.user.role,
-    userId: String(req.user._id),
-    conversationId,
-    userMessage: message,
-    port: createMockPort(),
-  });
+      role: req.user.role,
+      userId: String(req.user._id),
+      conversationId,
+      userMessage: message,
+      port: createDbPort(),
+    });
 
-  res.status(200).json({
-    success: true,
-    data: {
-      text: result.text,
-      mode: result.mode,
-      toolCalls: result.toolCalls,
-      conversationId: result.conversationId,
-    },
+    res.status(200).json({
+      success: true,
+      data: {
+        text: result.text,
+        mode: result.mode,
+        toolCalls: result.toolCalls,
+        conversationId: result.conversationId,
+      },
+    });
   });
-});
