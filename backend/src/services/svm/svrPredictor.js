@@ -1,8 +1,6 @@
 // Pure-Node inference for the frozen per-SKU StockSense demand model
-// (backend/src/ml/artifacts/svm_model.json). Mirrors train_svr.py's
-// build_features() and svr_predict_raw() exactly — validated by
-// backend/tests/svmPredictor.test.js against a Python-generated parity
-// fixture. No Mongo, no network, no native deps.
+// (backend/src/ml/artifacts/svm_model.json). The model artifact was produced
+// by an offline training step; this module only loads and runs it.
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -11,7 +9,7 @@ import path from 'node:path';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ARTIFACT_PATH = path.resolve(__dirname, '../../ml/artifacts/svm_model.json');
 
-// sorted(PROFILES) in train_svr.py => ['A','B','C','D']
+// sorted(PROFILES) layout used by the frozen model => ['A','B','C','D']
 const PROFILE_ORDER = ['A', 'B', 'C', 'D'];
 
 /**
@@ -24,8 +22,8 @@ export function loadSvmArtifact(filePath = DEFAULT_ARTIFACT_PATH) {
 }
 
 /**
- * RBF SVR decision function on standardized features — exact mirror of
- * train_svr.py svr_predict_raw() for a single 17-dim sample:
+ * RBF SVR decision function on standardized features for a single 17-dim
+ * sample:
  *   sx  = (x - mean) / scale
  *   out = sum_i dualCoef[i] * exp(-gamma * ||sx - supportVectors[i]||^2) + intercept
  * @param {object} m frozen svr entry ({ scaler, svr }) or object embedding one under `size`
@@ -56,8 +54,7 @@ export function svrPredictRaw(m, x) {
 
 /**
  * Build the 17-dim feature vector for predicting series[labelWeek] from
- * series[0 .. labelWeek-1]. Exact mirror of train_svr.py build_features()
- * with t = labelWeek - 1.
+ * series[0 .. labelWeek-1] (feature layout matches the frozen model).
  *
  * Cold start: weeks earlier than the start of `series` (or missing because
  * `series` is shorter than t + 1) are treated as 0 and indices clamp to >= 0.
@@ -91,7 +88,7 @@ export function buildSvmFeatures(series, profile, base, labelWeek) {
     if (series[i] > 0) nonzero++;
   }
   const historyLength = nonzero / Math.max(1, histLen);
-  const nonzeroRatio = historyLength; // train_svr.py: nonzero_ratio = history_length
+  const nonzeroRatio = historyLength; // matches frozen model feature layout
 
   const oneHot = PROFILE_ORDER.map((p) => (profile === p ? 1.0 : 0.0));
 
@@ -106,10 +103,10 @@ export function buildSvmFeatures(series, profile, base, labelWeek) {
 }
 
 /**
- * Multi-step recursive forecast for one SKU (1-week-ahead model rolled forward:
- * each prediction is appended to the history and fed into the next step), or
- * the trailing-mean recipe for baseline/guard_base entries — matching the
- * evaluated behavior in train_svr.py.
+ * Multi-step recursive forecast for one SKU (a 1-week-ahead model rolled
+ * forward: each prediction is appended to the history and fed into the next
+ * step), or the trailing-mean recipe for baseline/guard_base entries —
+ * matching the model's intended behavior.
  *
  * @param {object} model loaded artifact
  * @param {{sku?: string, profile: string, base: number, entry?: object}} opts
