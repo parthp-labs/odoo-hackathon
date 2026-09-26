@@ -32,17 +32,19 @@ test('normalizeAgmarknet returns null on empty payload', () => {
   assert.strictEqual(normalizeAgmarknet({ records: [] }, 'rice'), null);
 });
 
-test('normalizeCeda maps a CEDA payload with alternate price fields', () => {
+test('normalizeCeda maps a real CEDA /agmarknet/prices payload', () => {
   const rec = normalizeCeda(
-    { data: [{ market: 'Ludhiana Mandi', minimum_price: 900, maximum_price: 1000, average_price: 950, date: '2026-09-18' }] },
+    { data: [{ date: '2026-09-18', commodity_id: 1, market: 'Ludhiana Mandi', min_price: 900, max_price: 1000, modal_price: 950 }] },
     'wheat'
   );
   assert.ok(rec.live);
   assert.strictEqual(rec.source, 'ceda');
   assert.strictEqual(rec.commodity, 'wheat');
+  assert.strictEqual(rec.market, 'Ludhiana Mandi');
   assert.strictEqual(rec.minPrice, 900);
   assert.strictEqual(rec.maxPrice, 1000);
   assert.strictEqual(rec.modalPrice, 950);
+  assert.strictEqual(rec.date, '2026-09-18');
 });
 
 test('normalizeCeda warns on missing data', () => {
