@@ -5,6 +5,10 @@ import morgan from 'morgan';
 
 import healthRoutes from './routes/health.route.js';
 import authRoutes from './routes/auth.route.js';
+import warehouseRoutes from './routes/warehouse.route.js';
+import locationRoutes from './routes/location.route.js';
+import productCategoryRoutes from './routes/productCategory.route.js';
+import productRoutes from './routes/product.route.js';
 import errorHandler from './middlewares/error.middleware.js';
 import ErrorResponse from './utils/errorResponse.js';
 
@@ -34,6 +38,10 @@ app.get('/', (req, res) => {
 // API Routes
 app.use('/api', healthRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/warehouses', warehouseRoutes);
+app.use('/api/locations', locationRoutes);
+app.use('/api/categories', productCategoryRoutes);
+app.use('/api/products', productRoutes);
 
 // 404 Catch-all Handler
 app.use((req, res, next) => {
