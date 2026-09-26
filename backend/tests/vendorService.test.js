@@ -7,32 +7,36 @@ import Product from '../src/models/product.model.js';
 import Vendor from '../src/models/vendor.model.js';
 import VendorPrice from '../src/models/vendorPrice.model.js';
 
+// Self-contained: owns its own product, vendors, prices; only deletes its own records.
+
 describe('Vendor Search Service', () => {
   let port;
-  let product;
+  let productId, productSku;
   let v1, v2, v3;
 
   before(async () => {
     await connectDB();
     port = createMarketPort();
 
-    product = await Product.findOne({ is_active: true }).select('_id sku uom').lean()
-      || await Product.create({ name: 'Vendor Search Widget', sku: 'VS-0001', uom: 'units', is_active: true });
+    productSku = `VS-${Date.now()}-${Math.floor(Math.random() * 1e4)}`;
+    const product = await Product.create({ name: 'Vendor Search Widget', sku: productSku, uom: 'units', is_active: true });
+    productId = product._id;
 
     v1 = await Vendor.create({ vendorCode: 'VS-A', name: 'Alpha Industrial', city: 'Mumbai', state: 'MH', gstin: '27AAAAA0000A1Z5', source: 'seed', isVerified: true });
     v2 = await Vendor.create({ vendorCode: 'VS-B', name: 'Beta Traders', city: 'Mumbai', state: 'MH', source: 'seed', isVerified: false });
     v3 = await Vendor.create({ vendorCode: 'VS-C', name: 'Gamma Supply', city: 'Delhi', state: 'DL', source: 'seed', isVerified: false });
 
     await VendorPrice.create([
-      { vendor: v1._id, product: product._id, sku: product.sku, price: 100, currency: 'INR', uom: 'units', source: 'seed', confidence: 'demo' },
-      { vendor: v2._id, product: product._id, sku: product.sku, price: 80, currency: 'INR', uom: 'units', source: 'seed', confidence: 'demo' },
-      { vendor: v3._id, product: product._id, sku: product.sku, price: 120, currency: 'INR', uom: 'units', source: 'seed', confidence: 'demo' },
+      { vendor: v1._id, product: productId, sku: productSku, price: 100, currency: 'INR', uom: 'units', source: 'seed', confidence: 'demo' },
+      { vendor: v2._id, product: productId, sku: productSku, price: 80, currency: 'INR', uom: 'units', source: 'seed', confidence: 'demo' },
+      { vendor: v3._id, product: productId, sku: productSku, price: 120, currency: 'INR', uom: 'units', source: 'seed', confidence: 'demo' },
     ]);
   });
 
   after(async () => {
-    await VendorPrice.deleteMany({ product: product?._id });
+    await VendorPrice.deleteMany({ product: productId });
     await Vendor.deleteMany({ _id: { $in: [v1?._id, v2?._id, v3?._id] } });
+    await Product.deleteMany({ _id: productId });
     await mongoose.connection.close();
   });
 
@@ -42,14 +46,14 @@ describe('Vendor Search Service', () => {
     assert.strictEqual(typeof port.searchVendors, 'function');
   });
 
-  it('searchProducts returns the seeded product by sku', async () => {
-    const res = await port.searchProducts(product.sku);
+  it('searchProducts returns the owned product by sku', async () => {
+    const res = await port.searchProducts(productSku);
     assert.ok(res.length >= 1);
-    assert.strictEqual(res[0].sku, product.sku);
+    assert.ok(res.some((p) => p.sku === productSku));
   });
 
   it('getBestPricesForProduct returns vendors sorted cheapest-first with provenance', async () => {
-    const prices = await port.getBestPricesForProduct(product._id, { live: false, limit: 10 });
+    const prices = await port.getBestPricesForProduct(productId, { live: false, limit: 10 });
     assert.strictEqual(prices.length, 3);
     assert.strictEqual(prices[0].name, 'Beta Traders'); // 80 cheapest
     assert.strictEqual(prices[0].currency, 'INR');
