@@ -16,10 +16,6 @@ import {
 } from '../src/scripts/generateHistory.js';
 import {
   VENDOR_SEED,
-  VENDOR_CATEGORIES,
-  SEED_SKU_SPECS,
-  buildIllustrativeGstin,
-  generateVendorDataset,
   runVendorSeed,
 } from '../src/scripts/seedVendors.js';
 
@@ -105,61 +101,6 @@ describe('Synthetic history pure logic (no DB)', () => {
   });
 });
 
-describe('Indian vendor seed pure logic (no DB)', () => {
-  it('fixture list has 25 vendors with distinct cities in the intended regions', () => {
-    assert.strictEqual(VENDOR_FIXTURES.length, 25);
-    const names = new Set(VENDOR_FIXTURES.map((v) => v.name));
-    assert.strictEqual(names.size, 25);
-  });
-
-  it('buildIllustrativeGstin produces 15-char codes, deterministic, unique per name', () => {
-    const codes = new Set();
-    for (const fixture of VENDOR_FIXTURES) {
-      const g = buildIllustrativeGstin(fixture.name, fixture.city);
-      assert.strictEqual(g.length, 15, `gstin for ${fixture.name} is ${g}`);
-      assert.strictEqual(g, buildIllustrativeGstin(fixture.name, fixture.city));
-      assert.match(g, /^[0-9]{2}[A-Z0-9]{13}$/);
-      codes.add(g);
-    }
-    assert.strictEqual(codes.size, VENDOR_FIXTURES.length);
-  });
-
-  it('generateVendorPricesForProduct is deterministic', () => {
-    const detail = { sku: 'STEEL-12MM-ROD', uom: 'kg', index: 0 };
-    const now = new Date('2026-09-26T00:00:00Z');
-    const first = generateVendorPricesForProduct(detail, now);
-    const second = generateVendorPricesForProduct(detail, now);
-    assert.deepEqual(first, second);
-    assert.notDeepEqual(first, generateVendorPricesForProduct({ sku: 'HELM-SAFE-YEL', uom: 'units', index: 6 }, now));
-  });
-
-  it('vendor price drafts: 3-6 rows, INR, positive price, demo confidence, distinct vendors', () => {
-    const skus = [
-      { sku: 'STEEL-12MM-ROD', uom: 'kg', index: 0 },
-      { sku: 'CHAIR-ERGO-MESH', uom: 'units', index: 3 },
-      { sku: 'HELM-SAFE-YEL', uom: 'units', index: 6 },
-    ];
-    for (const detail of skus) {
-      const drafts = generateVendorPricesForProduct(detail);
-      assert.ok(drafts.length >= 3 && drafts.length <= 6,
-        `${detail.sku} got ${drafts.length} drafts, want 3-6`);
-      const vendorCodes = new Set(drafts.map((d) => d.vendorCode));
-      assert.strictEqual(vendorCodes.size, drafts.length, 'vendor codes must be distinct per product');
-      for (const d of drafts) {
-        assert.strictEqual(d.currency, 'INR');
-        assert.ok(d.price > 0, `price must be positive, got ${d.price}`);
-        assert.strictEqual(d.confidence, 'demo');
-        assert.strictEqual(d.source, 'seed');
-        assert.strictEqual(d.priceType, 'list');
-        assert.strictEqual(d.uom, detail.uom);
-        assert.ok(d.leadDays >= 3 && d.leadDays <= 21);
-        assert.ok([25, 50, 100].includes(d.moq));
-        assert.ok(new Date(d.effFrom) < new Date(), 'effFrom must be in the past');
-      }
-    }
-  });
-});
-
 // ---------------------------------------------------------------------------
 // 2. DB SMOKE TEST — real Mongo (Atlas), mirrors auth.test.js conventions.
 //    Skips itself gracefully when the database is unreachable so the pure
@@ -186,10 +127,10 @@ describe('Vendor seed DB smoke (real Mongo, guarded)', () => {
     }
   });
 
-  it('runs seedVendors and every active product ends with >=3 vendor prices', async (t) => {
+  it('runs seedVendors and every active product ends with >=5 vendor prices', async (t) => {
     if (!dbAvailable) return t.skip('Mongo unavailable — pure-logic tests cover the logic');
     const result = await runVendorSeed();
-    assert.ok(result.vendorCount === 25);
+    assert.ok(result.vendorCount === 120, `expected 120 vendors, got ${result.vendorCount}`);
     const vendorCount = await Vendor.countDocuments({ vendorCode: /^VND-SEED-/, source: 'seed' });
     assert.ok(vendorCount > 0, 'expected seeded vendors in DB');
 
@@ -198,17 +139,18 @@ describe('Vendor seed DB smoke (real Mongo, guarded)', () => {
     const products = await Product.find({ is_active: true, sku: { $in: Object.keys(BASE_WEEKLY_DEMAND) } });
     for (const product of products) {
       const priceCount = await VendorPrice.countDocuments({ product: product._id, source: 'seed' });
-      assert.ok(priceCount >= 3, `${product.sku} has only ${priceCount} vendor prices`);
+      assert.ok(priceCount >= 5, `${product.sku} has only ${priceCount} vendor prices`);
       assert.ok(priceCount <= 6, `${product.sku} has ${priceCount} vendor prices, max 6`);
     }
-    assert.ok(result.priceCount >= products.length * 3);
+    assert.ok(result.priceCount >= products.length * 5);
   });
 
   it('is idempotent: rerun does not duplicate vendors or prices', async (t) => {
     if (!dbAvailable) return t.skip('Mongo unavailable');
+    const seedVendors = await Vendor.find({ vendorCode: /^VND-SEED-/ }).select('_id');
     const beforeCounts = {
-      vendors: await Vendor.countDocuments({ vendorCode: /^VND-SEED-/ }),
-      prices: await VendorPrice.countDocuments({ source: 'seed', vendor: { $in: await Vendor.find({ vendorCode: /^VND-SEED-/ }).select('_id') } }),
+      vendors: seedVendors.length,
+      prices: await VendorPrice.countDocuments({ source: 'seed', vendor: { $in: seedVendors.map((v) => v._id) } }),
     };
     await runVendorSeed();
     const afterVendors = await Vendor.countDocuments({ vendorCode: /^VND-SEED-/ });

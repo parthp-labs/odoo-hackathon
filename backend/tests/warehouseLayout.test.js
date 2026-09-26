@@ -84,8 +84,9 @@ describe('Warehouse Rack & Shelf Layout Feature Tests', () => {
   });
 
   after(async () => {
-    server.close();
-  });
+      server.close();
+      await mongoose.connection.close();
+    });
 
   it('GET /api/stock/rack-layout should return structured warehouse rack layout with product details', async () => {
     const res = await fetch(`${baseUrl}/rack-layout?warehouse=${testWarehouse._id}`, {
