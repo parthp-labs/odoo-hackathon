@@ -1,11 +1,14 @@
-const path = require('path');
-const dotenv = require('dotenv');
+import path from 'path';
+import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
+import app from './app.js';
+import connectDB from './config/db.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Load environment variables with absolute path to .env
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
-
-const app = require('./app');
-const connectDB = require('./config/db');
 
 const PORT = process.env.PORT || 5000;
 

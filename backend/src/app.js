@@ -1,11 +1,11 @@
-const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
-const morgan = require('morgan');
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import morgan from 'morgan';
 
-const healthRoutes = require('./routes/health');
-const errorHandler = require('./middlewares/errorHandler');
-const ErrorResponse = require('./utils/errorResponse');
+import healthRoutes from './routes/health.js';
+import errorHandler from './middlewares/errorHandler.js';
+import ErrorResponse from './utils/errorResponse.js';
 
 const app = express();
 
@@ -41,4 +41,4 @@ app.use((req, res, next) => {
 // Centralized Error Handling Middleware
 app.use(errorHandler);
 
-module.exports = app;
+export default app;
