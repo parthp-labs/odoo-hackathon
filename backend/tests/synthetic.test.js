@@ -15,7 +15,6 @@ import {
   isoWeekLabel,
 } from '../src/scripts/generateHistory.js';
 import {
-  VENDOR_SEED,
   runVendorSeed,
 } from '../src/scripts/seedVendors.js';
 
