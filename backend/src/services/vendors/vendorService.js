@@ -5,7 +5,6 @@
 import Product from '../../models/product.model.js';
 import Vendor from '../../models/vendor.model.js';
 import VendorPrice from '../../models/vendorPrice.model.js';
-import { fetchCommodityPrice } from './commodityAdapter.js';
 
 /**
  * Search products by SKU (exact) or name/sku text; returns matching products.
@@ -33,10 +32,8 @@ export async function searchProducts(query, { limit = 20 } = {}) {
 
 /**
  * Get the available vendors + current prices for ONE product, cheapest first.
- * Optionally augments with a live commodity price when the product's category
- * maps to a commodity name.
  * @param {string|object} productIdOrProduct
- * @param {object} opts { limit, categoryToCommodity, agmarknetKey, cedaKey }
+ * @param {object} opts { limit }
  */
 export async function getBestPricesForProduct(productIdOrProduct, opts = {}) {
   const product =
@@ -82,40 +79,6 @@ export async function getBestPricesForProduct(productIdOrProduct, opts = {}) {
     });
   }
 
-  // Optional live garnish from a commodity price API when the category maps.
-  const commodity = opts.categoryToCommodity?.[String(product.category)] || categoryGuess(product);
-  if (commodity && opts.live !== false) {
-    try {
-      const live = await fetchCommodityPrice(commodity, {
-        agmarknetKey: opts.agmarknetKey,
-        cedaKey: opts.cedaKey,
-      });
-      if (live.live) {
-        out.push({
-          vendorId: null,
-          vendorCode: null,
-          name: `${live.source.toUpperCase()} market (${live.market || 'govt'} rate)`,
-          city: null,
-          state: null,
-          gstin: null,
-          isVerified: true,
-          price: live.modalPrice ?? live.maxPrice ?? live.minPrice ?? 0,
-          currency: 'INR',
-          uom: live.unit || 'quintal',
-          moq: 0,
-          leadDays: 0,
-          priceType: 'contract',
-          source: live.source,
-          confidence: 'live',
-          commodity,
-          priceDate: live.date || null,
-        });
-      }
-    } catch (_) {
-      // live garnish is optional; never break the demo
-    }
-  }
-
   return out;
 }
 
@@ -141,11 +104,6 @@ function resolveProduct(idOrObj) {
   if (typeof idOrObj === 'string') return Product.findById(idOrObj).lean();
   if (idOrObj?._id) return idOrObj; // already a populated doc/lean
   return Product.findById(idOrObj).lean();
-}
-
-function categoryGuess(product) {
-  // Best-effort: no robust mapping without the category name; return null.
-  return null;
 }
 
 function escapeRe(s) {

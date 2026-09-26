@@ -4,7 +4,7 @@ This feature adds a combined **replenishment flow** to the StockSense backend:
 
 1. **Forecast** per-SKU weekly demand from the `StockMove` ledger
 2. Compute a **reorder quantity** = forecast-over-lead-time + safety stock − (on-hand − reserved)
-3. List the **available vendors + prices** to source that quantity (Indian seed + optional live commodity API)
+3. List the **available vendors + prices** to source that quantity (Indian seed demo dataset)
 
 It builds on the existing inventory module (`Product`, `StockMove`, `StockQuant`, `Warehouse`, `Location`) and the existing auth (`protect`).
 
@@ -32,7 +32,6 @@ Express routes (protected)
       │            + top vendors by price
       ▼
  MarketPort ────► vendors + vendorPrices collections (seed)
-      │            + AGMARKNET / CEDA live commodity adapter (labeled "live", offline-fallback)
 ```
 
 ## Forecasting approach (why it's Node-only, and why that's right)
@@ -70,16 +69,9 @@ research confirmed there is no legitimate public API for it. So:
 
 - **Curated seed** (`vendors` + `vendorPrices` collections, `confidence:'demo'`, `source:'seed'`) provides
   realistic Indian vendors + ₹ price tiers for the demo — clearly labeled sample data.
-- **Optional live adapter** (`src/services/vendors/commodityAdapter.js`) calls **CEDA Agri Market
-  API** (`api.ceda.ashoka.edu.in`, primary — free self-serve key, OpenAPI-published, 2000→present
-  mandi min/max/modal ₹) then falls back to the official **AGMARKNET (data.gov.in)** resource, and
-  on any failure returns `{ live:false }` so the caller uses the seed — **the demo never blocks on
-  the network**. Live rows are tagged `confidence:'live'` / `source:'ceda'|'agmarknet'`.
-  (Per research 2026-09-26, data.gov.in's WAF TCP-resets cloud egress IPs, so CEDA is primary;
-  AGMARKNET remains for dev/residential IPs.)
 
-Set env keys (placeholders, never commit real keys):
-`CEDA_API_KEY`, `AGMARKNET_API_KEY`, `AGMARKNET_RESOURCE_ID` (see `.env.example`).
+All vendor/price rows are fictional-but-plausible demo data (confidence:'demo', source:'seed').
+No live price APIs are used; this is a self-contained demo dataset.
 
 ## Data seeding
 
@@ -103,6 +95,6 @@ Set env keys (placeholders, never commit real keys):
 
 `npm test` — the replenishment suites are `tests/forecast.test.js` (pure math, hermetic),
 `tests/forecastService.test.js`, `tests/reorder.test.js`, `tests/vendorService.test.js`,
-`tests/commodityAdapter.test.js`, and `tests/replenish.api.test.js` (protected routes).
+and `tests/replenish.api.test.js` (protected routes).
 DB-backed tests are **self-contained**: each creates and cleans up its own records so parallel
 test files sharing the live Mongo never collide.
