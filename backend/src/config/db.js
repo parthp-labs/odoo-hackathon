@@ -1,13 +1,30 @@
-const mongoose = require('mongoose');
+const path = require("path");
+const dotenv = require("dotenv");
+const mongoose = require("mongoose");
+
+// Ensure .env is loaded even if db.js is invoked directly
+dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/stocksense');
+    const mongoUri = process.env.MONGO_URI;
+
+    if (!mongoUri) {
+      throw new Error("MONGO_URI is not defined in environment variables");
+    }
+
+    if (mongoUri.includes("<db_password>")) {
+      console.warn(
+        '[Database Warning] MONGO_URI contains placeholder "<db_password>". Please replace it with your actual Atlas password in backend/.env',
+      );
+    }
+
+    const conn = await mongoose.connect(mongoUri);
     console.log(`[Database] MongoDB Connected: ${conn.connection.host}`);
+    return conn;
   } catch (error) {
     console.error(`[Database Error] ${error.message}`);
-    // In development, log the error rather than hard crashing immediately
-    if (process.env.NODE_ENV === 'production') {
+    if (process.env.NODE_ENV === "production") {
       process.exit(1);
     }
   }
